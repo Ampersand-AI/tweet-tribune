@@ -7,22 +7,31 @@ import ApiKeyForm from "./ApiKeyForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { connectToTwitter, isTwitterConnected } from "@/services/openai";
+import { connectToTwitter, isTwitterConnected, connectToLinkedin, isLinkedinConnected } from "@/services/openai";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [showConnectSuccess, setShowConnectSuccess] = useState(false);
+  const [showLinkedinConnectSuccess, setShowLinkedinConnectSuccess] = useState(false);
 
-  // Check if Twitter is connected on component mount
+  // Check if social media accounts are connected on component mount
   useEffect(() => {
-    const isConnected = isTwitterConnected();
-    setTwitterConnected(isConnected);
+    const isTwitterConn = isTwitterConnected();
+    setTwitterConnected(isTwitterConn);
+    
+    const isLinkedinConn = isLinkedinConnected();
+    setLinkedinConnected(isLinkedinConn);
     
     // Show success message if already connected
-    if (isConnected) {
+    if (isTwitterConn) {
       setShowConnectSuccess(true);
       setTimeout(() => setShowConnectSuccess(false), 5000);
+    }
+    
+    if (isLinkedinConn) {
+      setShowLinkedinConnectSuccess(true);
+      setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
     }
   }, []);
 
@@ -48,15 +57,22 @@ const AccountSettings = () => {
     }
   };
 
-  const handleLinkedinConnect = () => {
-    // Same placeholder for LinkedIn
-    setLinkedinConnected(!linkedinConnected);
-    
+  const handleLinkedinConnect = async () => {
     if (!linkedinConnected) {
-      toast.success("LinkedIn Connected", {
-        description: "Your LinkedIn account has been successfully connected."
-      });
+      const success = await connectToLinkedin();
+      
+      if (success) {
+        setLinkedinConnected(true);
+        setShowLinkedinConnectSuccess(true);
+        setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
+        toast.success("LinkedIn Connected", {
+          description: "Your LinkedIn account has been successfully connected."
+        });
+      }
     } else {
+      // Disconnect from LinkedIn
+      localStorage.removeItem("linkedin-connected");
+      setLinkedinConnected(false);
       toast.success("LinkedIn Disconnected", {
         description: "Your LinkedIn account has been disconnected."
       });
@@ -78,6 +94,15 @@ const AccountSettings = () => {
               <Check className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-700">
                 Twitter successfully connected and ready to use
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {showLinkedinConnectSuccess && linkedinConnected && (
+            <Alert className="bg-green-50 border-green-200 mb-4">
+              <Check className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">
+                LinkedIn successfully connected and ready to use
               </AlertDescription>
             </Alert>
           )}
@@ -112,9 +137,10 @@ const AccountSettings = () => {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="openai" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="openai">Claude AI</TabsTrigger>
               <TabsTrigger value="twitter">Twitter</TabsTrigger>
+              <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
             </TabsList>
             
             <TabsContent value="openai" className="space-y-4 mt-4">
@@ -150,6 +176,34 @@ const AccountSettings = () => {
                   <p className="text-xs text-muted-foreground">
                     Current API Key: dWbEeB7mH35rRfaeBAyAztDhW
                   </p>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="linkedin" className="space-y-4 mt-4">
+              <div className="space-y-4">
+                {linkedinConnected ? (
+                  <Alert className="bg-green-50 border-green-200">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-700">
+                      LinkedIn API credentials are configured and active
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <p className="text-sm text-amber-600 font-medium">
+                    LinkedIn is not connected. Connect it from the Social Media Accounts section above.
+                  </p>
+                )}
+                
+                {linkedinConnected && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Client ID: 776n50wy97k6rn
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Auth Key: WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==
+                    </p>
+                  </div>
                 )}
               </div>
             </TabsContent>

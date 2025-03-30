@@ -1,4 +1,5 @@
-// AI services for generating tweets and managing Twitter integration
+
+// AI services for generating tweets and managing Twitter/LinkedIn integration
 import { toast } from "sonner";
 
 interface Message {
@@ -11,6 +12,7 @@ interface TweetGenerationProps {
   tone: string;
   customInstructions?: string;
   apiProvider?: "deepseek";
+  platform?: "twitter" | "linkedin";
 }
 
 interface Tweet {
@@ -21,10 +23,11 @@ interface Tweet {
   scheduledAt?: string;
   postedAt?: string;
   status?: string;
+  platform?: "twitter" | "linkedin";
 }
 
 // Helper function to extract tweets from text content
-const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
+const extractTweetsFromText = (content: string, topic: string, platform: "twitter" | "linkedin" = "twitter"): Tweet[] => {
   console.log("Extracting tweets from text:", content);
   
   // Method 1: Try to extract using regex for numbered list format
@@ -33,7 +36,7 @@ const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
   
   let extractedTweets = matches
     .map(match => match[2].trim())
-    .filter(tweet => tweet.length > 0 && tweet.length <= 280);
+    .filter(tweet => tweet.length > 0 && (platform === "twitter" ? tweet.length <= 280 : tweet.length <= 700));
   
   // Method 2: Try to parse as JSON if regex didn't work
   if (extractedTweets.length === 0) {
@@ -65,7 +68,7 @@ const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
   if (extractedTweets.length === 0) {
     extractedTweets = content
       .split("\n")
-      .filter(line => line.trim().length > 0 && line.trim().length <= 280 && !line.startsWith("{") && !line.startsWith("["))
+      .filter(line => line.trim().length > 0 && (platform === "twitter" ? line.trim().length <= 280 : line.trim().length <= 700) && !line.startsWith("{") && !line.startsWith("["))
       .slice(0, 3);
   }
   
@@ -121,7 +124,8 @@ const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
         id: `tweet-${Date.now()}-${index}`,
         content: tweetContent,
         imagePrompt: imagePrompt,
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
+        platform: platform
       };
     });
 };
@@ -130,7 +134,8 @@ const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
 const generateTweetsWithDeepSeek = async (
   topic: string,
   tone: string,
-  customInstructions: string = ""
+  customInstructions: string = "",
+  platform: "twitter" | "linkedin" = "twitter"
 ): Promise<Tweet[]> => {
   try {
     const apiKey = localStorage.getItem("deepseek-api-key");
@@ -140,19 +145,23 @@ const generateTweetsWithDeepSeek = async (
       return [];
     }
 
+    const platformSpecificInstructions = platform === "twitter" 
+      ? "Each tweet should be under 280 characters, include relevant hashtags, and express original thoughts."
+      : "Each post should be under 700 characters, include relevant hashtags, and express professional insights. LinkedIn posts should be slightly more formal and business-oriented than Twitter.";
+
     const messages: Message[] = [
       {
         role: "system",
-        content: "You are a professional tweet writer. Generate exactly 3 engaging tweets about the topic provided. Use your own words and insights, not just links or forwards. Each tweet should feel personal and authentic. Include relevant hashtags naturally within the tweet content."
+        content: `You are a professional ${platform} content writer. Generate exactly 3 engaging posts about the topic provided. Use your own words and insights, not just links or forwards. Each post should feel personal and authentic. Include relevant hashtags naturally within the content.`
       },
       {
         role: "user",
-        content: `Generate 3 unique, engaging ${tone} tweets about "${topic}". Write in first person as if I'm posting these tweets myself. ${customInstructions}
-        Each tweet should be under 280 characters, include relevant hashtags, and express original thoughts rather than just sharing links.`
+        content: `Generate 3 unique, engaging ${tone} posts for ${platform} about "${topic}". Write in first person as if I'm posting these myself. ${customInstructions}
+        ${platformSpecificInstructions}`
       }
     ];
 
-    console.log("Sending request to DeepSeek API with messages:", messages);
+    console.log(`Sending request to DeepSeek API with messages for ${platform}:`, messages);
 
     try {
       const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -172,7 +181,7 @@ const generateTweetsWithDeepSeek = async (
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
         console.error("DeepSeek API error:", errorData);
-        toast.error(`API Error: ${errorData.error?.message || "Failed to generate tweets"}`);
+        toast.error(`API Error: ${errorData.error?.message || "Failed to generate posts"}`);
         return [];
       }
 
@@ -187,26 +196,26 @@ const generateTweetsWithDeepSeek = async (
         return [];
       }
       
-      console.log("Raw content from DeepSeek:", content);
+      console.log(`Raw content from DeepSeek for ${platform}:`, content);
       
       // Extract tweets from the content
-      const tweets = extractTweetsFromText(content, topic);
+      const tweets = extractTweetsFromText(content, topic, platform);
       
       if (tweets.length === 0) {
-        toast.error("Couldn't parse tweets from DeepSeek response");
+        toast.error(`Couldn't parse ${platform} posts from DeepSeek response`);
         return [];
       }
       
-      toast.success(`Generated ${tweets.length} tweets with DeepSeek`);
+      toast.success(`Generated ${tweets.length} ${platform} posts with DeepSeek`);
       return tweets;
     } catch (fetchError: any) {
       console.error("Fetch error:", fetchError);
-      toast.error(`Network error: ${fetchError.message || "Failed to connect to DeepSeek API"}`);
+      toast.error(`Network error: ${fetchError.message || `Failed to connect to DeepSeek API for ${platform} post generation`}`);
       return [];
     }
   } catch (error: any) {
-    console.error("Error generating tweets with DeepSeek:", error);
-    toast.error(error instanceof Error ? error.message : "Failed to generate tweets");
+    console.error(`Error generating ${platform} posts with DeepSeek:`, error);
+    toast.error(error instanceof Error ? error.message : `Failed to generate ${platform} posts`);
     return [];
   }
 };
@@ -216,10 +225,11 @@ export const generateTweets = async ({
   topic,
   tone,
   customInstructions = "",
-  apiProvider = "deepseek"
+  apiProvider = "deepseek",
+  platform = "twitter"
 }: TweetGenerationProps): Promise<Tweet[]> => {
-  console.log(`Generating tweets using ${apiProvider} API`);
-  return generateTweetsWithDeepSeek(topic, tone, customInstructions);
+  console.log(`Generating ${platform} posts using ${apiProvider} API`);
+  return generateTweetsWithDeepSeek(topic, tone, customInstructions, platform);
 };
 
 // Twitter connection and tweet functionality
@@ -289,7 +299,8 @@ const postScheduledTweet = (tweet: any) => {
   localStorage.setItem("tweet-history", JSON.stringify(updatedHistory));
   
   // Show success toast
-  toast.success(`Tweet posted successfully: "${tweet.content.substring(0, 30)}..."`);
+  const platform = tweet.platform || "twitter";
+  toast.success(`${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully: "${tweet.content.substring(0, 30)}..."`);
   
   // Update analytics after posting
   updateAnalytics();
@@ -313,29 +324,63 @@ export const connectToTwitter = async (): Promise<boolean> => {
   }
 };
 
+export const connectToLinkedin = async (): Promise<boolean> => {
+  try {
+    // Using the hardcoded credentials
+    const linkedinClientId = "776n50wy97k6rn";
+    const linkedinAuthKey = "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==";
+    
+    // Save the credentials and set connection status
+    localStorage.setItem("linkedin-client-id", linkedinClientId);
+    localStorage.setItem("linkedin-auth-key", linkedinAuthKey);
+    localStorage.setItem("linkedin-connected", "true");
+    
+    toast.success("Successfully connected to LinkedIn");
+    return true;
+  } catch (error) {
+    console.error("Error connecting to LinkedIn:", error);
+    toast.error("Failed to connect to LinkedIn");
+    return false;
+  }
+};
+
 export const isTwitterConnected = (): boolean => {
   const connected = localStorage.getItem("twitter-connected") === "true";
   const hasKey = localStorage.getItem("twitter-api-key") === "dWbEeB7mH35rRfaeBAyAztDhW";
   return connected && hasKey;
 };
 
-export const postTweet = async (tweetContent: string): Promise<boolean> => {
-  if (!isTwitterConnected()) {
+export const isLinkedinConnected = (): boolean => {
+  const connected = localStorage.getItem("linkedin-connected") === "true";
+  const hasClientId = localStorage.getItem("linkedin-client-id") === "776n50wy97k6rn";
+  const hasAuthKey = localStorage.getItem("linkedin-auth-key") === "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==";
+  return connected && hasClientId && hasAuthKey;
+};
+
+export const postTweet = async (tweetContent: string, imageUrl?: string, platform: "twitter" | "linkedin" = "twitter"): Promise<boolean> => {
+  if (platform === "twitter" && !isTwitterConnected()) {
     toast.error("Please connect to Twitter first");
     return false;
   }
   
+  if (platform === "linkedin" && !isLinkedinConnected()) {
+    toast.error("Please connect to LinkedIn first");
+    return false;
+  }
+  
   try {
-    // For now, we'll just simulate a successful tweet post
-    toast.success("Tweet posted successfully!");
+    // For now, we'll just simulate a successful post
+    toast.success(`${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`);
     
-    // Save to tweet history
+    // Save to post history
     const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");
     history.push({
-      id: `tweet-${Date.now()}`,
+      id: `${platform}-${Date.now()}`,
       content: tweetContent,
+      imageUrl: imageUrl || "",
       postedAt: new Date().toISOString(),
-      status: "posted"
+      status: "posted",
+      platform: platform
     });
     localStorage.setItem("tweet-history", JSON.stringify(history));
     
@@ -344,26 +389,32 @@ export const postTweet = async (tweetContent: string): Promise<boolean> => {
     
     return true;
   } catch (error) {
-    console.error("Error posting tweet:", error);
-    toast.error("Failed to post tweet");
+    console.error(`Error posting to ${platform}:`, error);
+    toast.error(`Failed to post to ${platform}`);
     return false;
   }
 };
 
-export const scheduleTweet = async (tweetContent: string, imageUrl: string | null, scheduledTime: Date): Promise<boolean> => {
-  if (!isTwitterConnected()) {
+export const scheduleTweet = async (tweetContent: string, imageUrl: string | null, scheduledTime: Date, platform: "twitter" | "linkedin" = "twitter"): Promise<boolean> => {
+  if (platform === "twitter" && !isTwitterConnected()) {
     toast.error("Please connect to Twitter first");
     return false;
   }
   
+  if (platform === "linkedin" && !isLinkedinConnected()) {
+    toast.error("Please connect to LinkedIn first");
+    return false;
+  }
+  
   try {
-    // Create a new scheduled tweet
+    // Create a new scheduled post
     const newScheduledTweet = {
       id: `scheduled-${Date.now()}`,
       content: tweetContent,
       imageUrl: imageUrl || "",
       scheduledAt: scheduledTime.toISOString(),
-      status: "scheduled"
+      status: "scheduled",
+      platform: platform
     };
     
     // Get current scheduled tweets
@@ -381,11 +432,11 @@ export const scheduleTweet = async (tweetContent: string, imageUrl: string | nul
     });
     localStorage.setItem("tweet-history", JSON.stringify(history));
     
-    toast.success(`Tweet scheduled for ${scheduledTime.toLocaleString()}`);
+    toast.success(`${platform === "twitter" ? "Tweet" : "LinkedIn post"} scheduled for ${scheduledTime.toLocaleString()}`);
     return true;
   } catch (error) {
-    console.error("Error scheduling tweet:", error);
-    toast.error("Failed to schedule tweet");
+    console.error(`Error scheduling ${platform} post:`, error);
+    toast.error(`Failed to schedule ${platform} post`);
     return false;
   }
 };
@@ -413,11 +464,11 @@ export const cancelScheduledTweet = (tweetId: string): boolean => {
     });
     localStorage.setItem("tweet-history", JSON.stringify(updatedHistory));
     
-    toast.success("Scheduled tweet canceled");
+    toast.success("Scheduled post canceled");
     return true;
   } catch (error) {
-    console.error("Error canceling scheduled tweet:", error);
-    toast.error("Failed to cancel scheduled tweet");
+    console.error("Error canceling scheduled post:", error);
+    toast.error("Failed to cancel scheduled post");
     return false;
   }
 };
@@ -439,8 +490,14 @@ export const updateAnalytics = () => {
   const history = getTweetHistory();
   const postedTweets = history.filter(tweet => tweet.status === "posted");
   
+  // Count by platform
+  const twitterPosts = postedTweets.filter(tweet => tweet.platform !== "linkedin").length;
+  const linkedinPosts = postedTweets.filter(tweet => tweet.platform === "linkedin").length;
+  
   // Update total tweets
   analytics.totalTweets = postedTweets.length;
+  analytics.twitterPosts = twitterPosts;
+  analytics.linkedinPosts = linkedinPosts;
   
   // Calculate tweets this month
   const tweetsThisMonth = postedTweets.filter(tweet => {

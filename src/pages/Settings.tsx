@@ -13,9 +13,18 @@ const Settings = () => {
       console.log("DeepSeek API key initialized");
     }
     
+    // Set LinkedIn API credentials if not already set
+    if (!localStorage.getItem("linkedin-client-id")) {
+      localStorage.setItem("linkedin-client-id", "776n50wy97k6rn");
+    }
+    
+    if (!localStorage.getItem("linkedin-auth-key")) {
+      localStorage.setItem("linkedin-auth-key", "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==");
+    }
+    
     // Show a notification that keys are initialized
-    toast.success("API key initialized", {
-      description: "DeepSeek API key has been set up automatically"
+    toast.success("API keys initialized", {
+      description: "DeepSeek API key and LinkedIn credentials have been set up automatically"
     });
   }, []);
 
