@@ -45,7 +45,7 @@ export const generateTweets = async ({
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-opus-20240229",
+        model: "claude-3-haiku-20240307",
         max_tokens: 1000,
         messages,
         temperature: 0.7,
@@ -69,29 +69,37 @@ export const generateTweets = async ({
       const content = data.content[0].text;
       console.log("Raw content from Claude:", content);
       
-      // Extract JSON from the content (in case Claude wraps it in markdown)
-      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\[([\s\S]*?)\]/) || content.match(/\{[\s\S]*\}/);
-      let jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
-      
-      // Clean up the JSON string
-      jsonContent = jsonContent.trim();
-      if (jsonContent.startsWith("```") && jsonContent.endsWith("```")) {
-        jsonContent = jsonContent.substring(3, jsonContent.length - 3).trim();
-      }
-      
-      console.log("Extracted JSON content:", jsonContent);
-      
-      // Parse the JSON
-      const parsedResponse = JSON.parse(jsonContent);
-      console.log("Parsed response:", parsedResponse);
-      
-      // Handle different response formats
-      if (Array.isArray(parsedResponse)) {
-        tweets = parsedResponse;
-      } else if (parsedResponse.tweets && Array.isArray(parsedResponse.tweets)) {
-        tweets = parsedResponse.tweets;
-      } else {
-        tweets = [parsedResponse]; // Fallback if single object
+      // Try multiple ways to extract valid JSON
+      // First, try direct JSON parsing
+      try {
+        tweets = JSON.parse(content);
+        if (!Array.isArray(tweets)) {
+          if (tweets.tweets && Array.isArray(tweets.tweets)) {
+            tweets = tweets.tweets;
+          } else {
+            tweets = [tweets];
+          }
+        }
+      } catch (jsonError) {
+        // If direct parsing fails, try to extract JSON from markdown
+        console.log("Direct JSON parse failed, trying to extract from markdown");
+        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
+                          content.match(/\[([\s\S]*?)\]/) || 
+                          content.match(/(\{[\s\S]*\})/);
+                          
+        if (jsonMatch && jsonMatch[1]) {
+          const extractedJson = jsonMatch[1].trim();
+          tweets = JSON.parse(extractedJson);
+          if (!Array.isArray(tweets)) {
+            if (tweets.tweets && Array.isArray(tweets.tweets)) {
+              tweets = tweets.tweets;
+            } else {
+              tweets = [tweets];
+            }
+          }
+        } else {
+          throw new Error("Could not extract valid JSON from Claude response");
+        }
       }
       
       console.log("Final tweets array:", tweets);
@@ -119,18 +127,11 @@ let scheduledTweets = JSON.parse(localStorage.getItem("scheduled-tweets") || "[]
 
 export const connectToTwitter = async (): Promise<boolean> => {
   try {
-    const twitterApiKey = localStorage.getItem("twitter-api-key");
-    const twitterSecretKey = localStorage.getItem("twitter-secret-api-key");
+    // Using the hardcoded key
+    const twitterApiKey = "dWbEeB7mH35rRfaeBAyAztDhW";
     
-    if (!twitterApiKey || !twitterSecretKey) {
-      toast.warning("Twitter API keys are required", {
-        description: "Please add your Twitter API keys in settings"
-      });
-      return false;
-    }
-    
-    // In a real app, this would validate the keys with Twitter OAuth
-    // For now, we'll simulate a successful connection
+    // Save the key and set connection status
+    localStorage.setItem("twitter-api-key", twitterApiKey);
     localStorage.setItem("twitter-connected", "true");
     
     toast.success("Successfully connected to Twitter");
@@ -143,7 +144,9 @@ export const connectToTwitter = async (): Promise<boolean> => {
 };
 
 export const isTwitterConnected = (): boolean => {
-  return localStorage.getItem("twitter-connected") === "true";
+  const connected = localStorage.getItem("twitter-connected") === "true";
+  const hasKey = localStorage.getItem("twitter-api-key") === "dWbEeB7mH35rRfaeBAyAztDhW";
+  return connected && hasKey;
 };
 
 export const postTweet = async (tweetContent: string): Promise<boolean> => {
@@ -189,6 +192,9 @@ export const scheduleTweet = async (tweetContent: string, imageUrl: string | nul
       scheduledAt: scheduledTime.toISOString(),
       status: "scheduled"
     };
+    
+    // Get current scheduled tweets
+    scheduledTweets = JSON.parse(localStorage.getItem("scheduled-tweets") || "[]");
     
     // Add to scheduled tweets
     scheduledTweets.push(newScheduledTweet);

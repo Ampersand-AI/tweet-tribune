@@ -1,27 +1,10 @@
 
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Clock, 
-  Calendar, 
-  CheckCircle2, 
-  XCircle,
-  AlertCircle,
-  History as HistoryIcon
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { getTweetHistory } from "@/services/openai";
 import { Badge } from "@/components/ui/badge";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { getTweetHistory } from "@/services/openai";
+import { useEffect, useState } from "react";
+import { CalendarIcon, Clock } from "lucide-react";
 
 const History = () => {
   const [tweetHistory, setTweetHistory] = useState<any[]>([]);
@@ -34,35 +17,21 @@ const History = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "posted":
-        return (
-          <Badge variant="success" className="bg-green-500">
-            <CheckCircle2 className="h-3 w-3 mr-1" />
-            Posted
-          </Badge>
-        );
+        return <Badge variant="success">Posted</Badge>;
       case "scheduled":
-        return (
-          <Badge variant="outline" className="border-blue-500 text-blue-500">
-            <Clock className="h-3 w-3 mr-1" />
-            Scheduled
-          </Badge>
-        );
+        return <Badge variant="secondary">Scheduled</Badge>;
       case "canceled":
-        return (
-          <Badge variant="destructive">
-            <XCircle className="h-3 w-3 mr-1" />
-            Canceled
-          </Badge>
-        );
+        return <Badge variant="destructive">Canceled</Badge>;
       default:
-        return (
-          <Badge variant="outline">
-            <AlertCircle className="h-3 w-3 mr-1" />
-            Unknown
-          </Badge>
-        );
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
+
+  const sortedHistory = [...tweetHistory].sort((a, b) => {
+    const dateA = a.postedAt ? new Date(a.postedAt).getTime() : new Date(a.scheduledAt).getTime();
+    const dateB = b.postedAt ? new Date(b.postedAt).getTime() : new Date(b.scheduledAt).getTime();
+    return dateB - dateA; // Most recent first
+  });
 
   return (
     <MainLayout>
@@ -71,70 +40,56 @@ const History = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <HistoryIcon className="h-5 w-5 mr-2" />
-              Tweet Activity History
-            </CardTitle>
+            <CardTitle>Your Tweet Activity</CardTitle>
             <CardDescription>
-              View all your past tweets, scheduled, and canceled tweets
+              View all your tweet activity, including posted and scheduled tweets
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {tweetHistory.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Content</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tweetHistory.map((tweet) => {
-                    const date = new Date(
-                      tweet.status === "scheduled" ? tweet.scheduledAt : tweet.postedAt
-                    );
-                    return (
-                      <TableRow key={tweet.id}>
-                        <TableCell className="max-w-md truncate">
-                          {tweet.content}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(tweet.status)}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <span className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
-                            {date.toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric"
+            {sortedHistory.length > 0 ? (
+              <div className="space-y-6">
+                {sortedHistory.map((tweet) => {
+                  const date = tweet.postedAt ? new Date(tweet.postedAt) : new Date(tweet.scheduledAt);
+                  return (
+                    <div 
+                      key={tweet.id}
+                      className="flex flex-col sm:flex-row gap-4 p-4 border rounded-lg"
+                    >
+                      <div className="w-full">
+                        <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
+                          <p className="text-sm">{tweet.content}</p>
+                          <div>
+                            {getStatusBadge(tweet.status)}
+                          </div>
+                        </div>
+                        <div className="flex items-center text-xs text-muted-foreground mt-2">
+                          <CalendarIcon className="h-3 w-3 mr-1" />
+                          <span>
+                            {date.toLocaleDateString(undefined, { 
+                              weekday: 'short', 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
                             })}
                           </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="flex items-center">
-                            <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+                          <Clock className="h-3 w-3 ml-2 mr-1" />
+                          <span>
                             {date.toLocaleTimeString(undefined, {
-                              hour: "2-digit",
-                              minute: "2-digit"
+                              hour: '2-digit',
+                              minute: '2-digit'
                             })}
                           </span>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  No tweet history yet. Start by generating and posting tweets.
+                  No tweet history found. Post or schedule tweets to see your activity here.
                 </p>
-                <Link to="/">
-                  <Button className="mt-4">
-                    Generate Tweets
-                  </Button>
-                </Link>
               </div>
             )}
           </CardContent>

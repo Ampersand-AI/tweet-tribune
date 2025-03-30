@@ -6,19 +6,23 @@ import { CalendarIcon, Clock, Trash2, PenSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cancelScheduledTweet, getScheduledTweets } from "@/services/openai";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 const Schedule = () => {
   const [scheduledTweets, setScheduledTweets] = useState<any[]>([]);
 
   useEffect(() => {
     // Load scheduled tweets
-    setScheduledTweets(getScheduledTweets());
+    const tweets = getScheduledTweets();
+    console.log("Loaded scheduled tweets:", tweets);
+    setScheduledTweets(tweets);
   }, []);
 
   const handleCancelTweet = (tweetId: string) => {
     if (cancelScheduledTweet(tweetId)) {
       // Update the state to reflect the canceled tweet
       setScheduledTweets(getScheduledTweets());
+      toast.success("Tweet canceled successfully");
     }
   };
 
