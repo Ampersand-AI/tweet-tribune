@@ -19,7 +19,7 @@ export const generateTweets = async ({
   customInstructions = "",
 }: TweetGenerationProps): Promise<any[]> => {
   try {
-    const apiKey = localStorage.getItem("openai-api-key"); // We'll keep using the same localStorage key for simplicity
+    const apiKey = localStorage.getItem("openai-api-key"); // Using the same localStorage key
     
     if (!apiKey) {
       toast.error("Claude API key is required");
@@ -55,6 +55,7 @@ export const generateTweets = async ({
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error("Claude API error:", errorData);
       throw new Error(errorData.error?.message || "Failed to generate tweets");
     }
 
@@ -70,7 +71,13 @@ export const generateTweets = async ({
       
       // Extract JSON from the content (in case Claude wraps it in markdown)
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\[([\s\S]*?)\]/) || content.match(/\{[\s\S]*\}/);
-      const jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+      let jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+      
+      // Clean up the JSON string
+      jsonContent = jsonContent.trim();
+      if (jsonContent.startsWith("```") && jsonContent.endsWith("```")) {
+        jsonContent = jsonContent.substring(3, jsonContent.length - 3).trim();
+      }
       
       console.log("Extracted JSON content:", jsonContent);
       
@@ -89,7 +96,7 @@ export const generateTweets = async ({
       
       console.log("Final tweets array:", tweets);
       
-      // Add placeholder images until we implement image generation
+      // Add proper IDs and image URLs
       return tweets.map((tweet: any, index: number) => ({
         id: `tweet-${Date.now()}-${index}`,
         content: tweet.content || tweet.text || "No content provided",
@@ -107,23 +114,26 @@ export const generateTweets = async ({
   }
 };
 
-// Implement the Twitter connection functionality
+// Twitter connection and tweet functionality
+let scheduledTweets = JSON.parse(localStorage.getItem("scheduled-tweets") || "[]");
+
 export const connectToTwitter = async (): Promise<boolean> => {
   try {
-    // In a real app, this would connect to Twitter OAuth
-    // For now, we'll simulate a successful connection
-    localStorage.setItem("twitter-connected", "true");
     const twitterApiKey = localStorage.getItem("twitter-api-key");
     const twitterSecretKey = localStorage.getItem("twitter-secret-api-key");
     
     if (!twitterApiKey || !twitterSecretKey) {
-      toast.warning("Connected to Twitter, but API keys are missing", {
+      toast.warning("Twitter API keys are required", {
         description: "Please add your Twitter API keys in settings"
       });
-    } else {
-      toast.success("Successfully connected to Twitter");
+      return false;
     }
     
+    // In a real app, this would validate the keys with Twitter OAuth
+    // For now, we'll simulate a successful connection
+    localStorage.setItem("twitter-connected", "true");
+    
+    toast.success("Successfully connected to Twitter");
     return true;
   } catch (error) {
     console.error("Error connecting to Twitter:", error);
@@ -132,28 +142,107 @@ export const connectToTwitter = async (): Promise<boolean> => {
   }
 };
 
-export const postTweet = async (tweetContent: string): Promise<boolean> => {
-  const isConnected = localStorage.getItem("twitter-connected") === "true";
-  
-  if (!isConnected) {
-    toast.error("Please connect to Twitter first");
-    return false;
-  }
-  
-  // For now, we'll just simulate a successful tweet post
-  toast.success("Tweet posted successfully!");
-  return true;
+export const isTwitterConnected = (): boolean => {
+  return localStorage.getItem("twitter-connected") === "true";
 };
 
-export const scheduleTweet = async (tweetContent: string, scheduledTime: Date): Promise<boolean> => {
-  const isConnected = localStorage.getItem("twitter-connected") === "true";
-  
-  if (!isConnected) {
+export const postTweet = async (tweetContent: string): Promise<boolean> => {
+  if (!isTwitterConnected()) {
     toast.error("Please connect to Twitter first");
     return false;
   }
   
-  // For now, we'll just simulate scheduling a tweet
-  toast.success(`Tweet scheduled for ${scheduledTime.toLocaleString()}`);
-  return true;
+  try {
+    // For now, we'll just simulate a successful tweet post
+    toast.success("Tweet posted successfully!");
+    
+    // Save to tweet history
+    const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");
+    history.push({
+      id: `tweet-${Date.now()}`,
+      content: tweetContent,
+      postedAt: new Date().toISOString(),
+      status: "posted"
+    });
+    localStorage.setItem("tweet-history", JSON.stringify(history));
+    
+    return true;
+  } catch (error) {
+    console.error("Error posting tweet:", error);
+    toast.error("Failed to post tweet");
+    return false;
+  }
+};
+
+export const scheduleTweet = async (tweetContent: string, imageUrl: string | null, scheduledTime: Date): Promise<boolean> => {
+  if (!isTwitterConnected()) {
+    toast.error("Please connect to Twitter first");
+    return false;
+  }
+  
+  try {
+    // Create a new scheduled tweet
+    const newScheduledTweet = {
+      id: `scheduled-${Date.now()}`,
+      content: tweetContent,
+      imageUrl: imageUrl || "",
+      scheduledAt: scheduledTime.toISOString(),
+      status: "scheduled"
+    };
+    
+    // Add to scheduled tweets
+    scheduledTweets.push(newScheduledTweet);
+    localStorage.setItem("scheduled-tweets", JSON.stringify(scheduledTweets));
+    
+    // Also add to tweet history
+    const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");
+    history.push({
+      ...newScheduledTweet,
+      status: "scheduled"
+    });
+    localStorage.setItem("tweet-history", JSON.stringify(history));
+    
+    toast.success(`Tweet scheduled for ${scheduledTime.toLocaleString()}`);
+    return true;
+  } catch (error) {
+    console.error("Error scheduling tweet:", error);
+    toast.error("Failed to schedule tweet");
+    return false;
+  }
+};
+
+export const getScheduledTweets = (): any[] => {
+  return JSON.parse(localStorage.getItem("scheduled-tweets") || "[]");
+};
+
+export const cancelScheduledTweet = (tweetId: string): boolean => {
+  try {
+    // Find the tweet in the scheduled tweets
+    const existingTweets = JSON.parse(localStorage.getItem("scheduled-tweets") || "[]");
+    const updatedTweets = existingTweets.filter((tweet: any) => tweet.id !== tweetId);
+    
+    localStorage.setItem("scheduled-tweets", JSON.stringify(updatedTweets));
+    scheduledTweets = updatedTweets;
+    
+    // Update tweet history
+    const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");
+    const updatedHistory = history.map((tweet: any) => {
+      if (tweet.id === tweetId) {
+        return { ...tweet, status: "canceled" };
+      }
+      return tweet;
+    });
+    localStorage.setItem("tweet-history", JSON.stringify(updatedHistory));
+    
+    toast.success("Scheduled tweet canceled");
+    return true;
+  } catch (error) {
+    console.error("Error canceling scheduled tweet:", error);
+    toast.error("Failed to cancel scheduled tweet");
+    return false;
+  }
+};
+
+export const getTweetHistory = (): any[] => {
+  return JSON.parse(localStorage.getItem("tweet-history") || "[]");
 };

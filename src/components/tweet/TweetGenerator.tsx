@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TweetPreview from "./TweetPreview";
 import ApiKeyForm from "../settings/ApiKeyForm";
-import { generateTweets, postTweet, scheduleTweet } from "@/services/openai";
+import { generateTweets, postTweet, scheduleTweet, isTwitterConnected } from "@/services/openai";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
@@ -40,6 +40,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [twitterConnected, setTwitterConnected] = useState(false);
 
   // Load OpenAI API key from localStorage on component mount
   useEffect(() => {
@@ -47,11 +48,14 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     if (savedKey) {
       setOpenaiApiKey(savedKey);
     }
+    
+    // Check Twitter connection status
+    setTwitterConnected(isTwitterConnected());
   }, []);
 
   const handleGenerate = async () => {
     if (!openaiApiKey) {
-      toast.error("Please provide your OpenAI API key in the settings");
+      toast.error("Please provide your Claude API key in the settings");
       return;
     }
 
@@ -91,8 +95,14 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const handlePostNow = async () => {
     if (!selectedTweet) return;
     
+    if (!twitterConnected) {
+      toast.error("Please connect to Twitter first in Settings");
+      return;
+    }
+    
     try {
       await postTweet(selectedTweet.content);
+      toast.success("Tweet posted successfully");
     } catch (error) {
       toast.error("Failed to post tweet");
     }
@@ -104,10 +114,16 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
       return;
     }
     
+    if (!twitterConnected) {
+      toast.error("Please connect to Twitter first in Settings");
+      return;
+    }
+    
     try {
       const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
-      await scheduleTweet(selectedTweet.content, scheduledDateTime);
+      await scheduleTweet(selectedTweet.content, selectedTweet.imageUrl, scheduledDateTime);
       setIsScheduleDialogOpen(false);
+      toast.success("Tweet scheduled successfully");
     } catch (error) {
       toast.error("Failed to schedule tweet");
     }
@@ -142,12 +158,12 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
           {!openaiApiKey && (
             <div className="space-y-4">
               <p className="text-sm text-amber-600">
-                OpenAI API Key is required to generate tweets. You can add it below.
+                Claude API Key is required to generate tweets. You can add it below.
               </p>
               <ApiKeyForm
                 keyType="openai"
-                label="OpenAI API Key"
-                placeholder="sk-..."
+                label="Claude API Key"
+                placeholder="sk-ant-..."
                 description="Your API key is stored locally and never sent to our servers."
                 onApiKeySubmit={(key) => setOpenaiApiKey(key)}
               />
