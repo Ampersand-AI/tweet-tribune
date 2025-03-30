@@ -42,8 +42,8 @@ const ApiKeyForm = ({
     }
 
     // Basic validation based on key type
-    if (keyType === "openai" && !apiKey.startsWith("sk-")) {
-      setError("Please enter a valid Claude API key");
+    if (keyType === "openai" && !apiKey.startsWith("sk-ant-")) {
+      setError("Please enter a valid Claude API key (should start with 'sk-ant-')");
       return;
     }
 

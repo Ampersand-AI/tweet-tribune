@@ -1,26 +1,33 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Twitter, Linkedin } from "lucide-react";
 import ApiKeyForm from "./ApiKeyForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { connectToTwitter } from "@/services/openai";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
 
-  const handleTwitterConnect = () => {
-    // In a real app, this would trigger OAuth flow
-    // For now, we'll just toggle the state
-    setTwitterConnected(!twitterConnected);
-    
+  // Check if Twitter is connected on component mount
+  useEffect(() => {
+    const isConnected = localStorage.getItem("twitter-connected") === "true";
+    setTwitterConnected(isConnected);
+  }, []);
+
+  const handleTwitterConnect = async () => {
     if (!twitterConnected) {
-      toast.success("Twitter Connected", {
-        description: "Your Twitter account has been successfully connected."
-      });
+      const success = await connectToTwitter();
+      if (success) {
+        setTwitterConnected(true);
+      }
     } else {
+      // Disconnect from Twitter
+      localStorage.removeItem("twitter-connected");
+      setTwitterConnected(false);
       toast.success("Twitter Disconnected", {
         description: "Your Twitter account has been disconnected."
       });
