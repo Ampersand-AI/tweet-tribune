@@ -144,7 +144,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
               <div>
                 <h3 className="text-lg font-medium mb-2">Custom Instructions (Optional)</h3>
                 <Textarea 
-                  placeholder="Add any specific instructions for the AI..." 
+                  placeholder="Write tweets in my voice. Include relevant hashtags and make them sound conversational." 
                   value={customInstructions}
                   onChange={(e) => setCustomInstructions(e.target.value)}
                   className="h-32"

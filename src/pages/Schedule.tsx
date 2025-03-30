@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, Clock, Trash2, PenSquare, Check, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cancelScheduledTweet, getScheduledTweets, generateTweets, scheduleTweet } from "@/services/openai";
+import { cancelScheduledTweet, checkAndPostScheduledTweets, getScheduledTweets, generateTweets, scheduleTweet } from "@/services/openai";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,13 +33,25 @@ const Schedule = () => {
     // Listen for new generated tweets
     const handleNewTweets = (event: CustomEvent) => {
       console.log("Received new tweets from event:", event.detail);
-      setPendingTweets(event.detail);
+      setPendingTweets(prev => [...prev, ...event.detail]);
     };
     
     window.addEventListener('tweetsGenerated', handleNewTweets as EventListener);
     
+    // Set up scheduled tweet checker to run every minute
+    const intervalId = setInterval(() => {
+      console.log("Checking for scheduled tweets to post...");
+      checkAndPostScheduledTweets();
+      // Refresh the scheduled tweets list after checking
+      setScheduledTweets(getScheduledTweets());
+    }, 60000); // Check every minute
+    
+    // Run once on component mount
+    checkAndPostScheduledTweets();
+    
     return () => {
       window.removeEventListener('tweetsGenerated', handleNewTweets as EventListener);
+      clearInterval(intervalId);
     };
   }, []);
 
@@ -255,13 +267,12 @@ const Schedule = () => {
                     <Button 
                       className="mt-4" 
                       onClick={() => {
-                        // Get the "pending" tab element and switch to it
+                        // Switch to the pending tab using tabsTrigger
                         const pendingTab = document.querySelector('[data-value="pending"]');
                         if (pendingTab) {
-                          pendingTab.dispatchEvent(new MouseEvent('click', {
+                          pendingTab.dispatchEvent(new Event('click', {
                             bubbles: true,
-                            cancelable: true,
-                            view: window
+                            cancelable: true
                           }));
                         }
                       }}
@@ -352,10 +363,9 @@ const Schedule = () => {
                       onClick={() => {
                         const approvedTab = document.querySelector('[data-value="approved"]');
                         if (approvedTab) {
-                          approvedTab.dispatchEvent(new MouseEvent('click', {
+                          approvedTab.dispatchEvent(new Event('click', {
                             bubbles: true,
-                            cancelable: true,
-                            view: window
+                            cancelable: true
                           }));
                         }
                       }}
