@@ -2,39 +2,42 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Twitter, Linkedin } from "lucide-react";
+import { Twitter, Linkedin, Check } from "lucide-react";
 import ApiKeyForm from "./ApiKeyForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { connectToTwitter } from "@/services/openai";
+import { connectToTwitter, isTwitterConnected } from "@/services/openai";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
+  const [showConnectSuccess, setShowConnectSuccess] = useState(false);
 
   // Check if Twitter is connected on component mount
   useEffect(() => {
-    const isConnected = localStorage.getItem("twitter-connected") === "true";
-    const twitterApiKey = localStorage.getItem("twitter-api-key");
+    const isConnected = isTwitterConnected();
+    setTwitterConnected(isConnected);
     
-    // Auto-connect if API key is already saved
-    if (twitterApiKey === "dWbEeB7mH35rRfaeBAyAztDhW") {
-      localStorage.setItem("twitter-connected", "true");
-      setTwitterConnected(true);
-    } else {
-      setTwitterConnected(isConnected);
+    // Show success message if already connected
+    if (isConnected) {
+      setShowConnectSuccess(true);
+      setTimeout(() => setShowConnectSuccess(false), 5000);
     }
   }, []);
 
   const handleTwitterConnect = async () => {
     if (!twitterConnected) {
-      // Save the hardcoded Twitter API key
-      localStorage.setItem("twitter-api-key", "dWbEeB7mH35rRfaeBAyAztDhW");
-      localStorage.setItem("twitter-connected", "true");
-      setTwitterConnected(true);
-      toast.success("Twitter Connected", {
-        description: "Your Twitter account has been successfully connected."
-      });
+      const success = await connectToTwitter();
+      
+      if (success) {
+        setTwitterConnected(true);
+        setShowConnectSuccess(true);
+        setTimeout(() => setShowConnectSuccess(false), 5000);
+        toast.success("Twitter Connected", {
+          description: "Your Twitter account has been successfully connected."
+        });
+      }
     } else {
       // Disconnect from Twitter
       localStorage.removeItem("twitter-connected");
@@ -70,6 +73,15 @@ const AccountSettings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {showConnectSuccess && twitterConnected && (
+            <Alert className="bg-green-50 border-green-200 mb-4">
+              <Check className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-700">
+                Twitter successfully connected and ready to use
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex flex-col space-y-2">
             <Button 
               className="justify-start" 
@@ -111,18 +123,34 @@ const AccountSettings = () => {
                 label="Claude API Key"
                 placeholder="sk-ant-api..."
                 description="Your API key is stored locally and never sent to our servers."
-                onApiKeySubmit={(key) => console.log("Claude API key saved")}
+                onApiKeySubmit={(key) => {
+                  toast.success("Claude API Key Saved", {
+                    description: "Your Claude API key has been saved successfully."
+                  });
+                }}
               />
             </TabsContent>
             
             <TabsContent value="twitter" className="space-y-4 mt-4">
               <div className="space-y-4">
-                <p className="text-sm text-green-600 font-medium">
-                  Twitter API key is already configured and active.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Current API Key: dWbEeB7mH35rRfaeBAyAztDhW
-                </p>
+                {twitterConnected ? (
+                  <Alert className="bg-green-50 border-green-200">
+                    <Check className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-700">
+                      Twitter API key is configured and active
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <p className="text-sm text-amber-600 font-medium">
+                    Twitter is not connected. Connect it from the Social Media Accounts section above.
+                  </p>
+                )}
+                
+                {twitterConnected && (
+                  <p className="text-xs text-muted-foreground">
+                    Current API Key: dWbEeB7mH35rRfaeBAyAztDhW
+                  </p>
+                )}
               </div>
             </TabsContent>
           </Tabs>

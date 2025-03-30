@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Send, Clock } from "lucide-react";
+import { Calendar, Send, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import TweetPreview from "./TweetPreview";
 import ApiKeyForm from "../settings/ApiKeyForm";
 import { generateTweets, postTweet, scheduleTweet, isTwitterConnected } from "@/services/openai";
@@ -41,16 +41,20 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [scheduleTime, setScheduleTime] = useState("");
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [twitterConnected, setTwitterConnected] = useState(false);
+  const [showApiSuccess, setShowApiSuccess] = useState(false);
 
   // Load OpenAI API key from localStorage on component mount
   useEffect(() => {
     const savedKey = localStorage.getItem("openai-api-key");
     if (savedKey) {
       setOpenaiApiKey(savedKey);
+      setShowApiSuccess(true);
+      setTimeout(() => setShowApiSuccess(false), 5000);
     }
     
     // Check Twitter connection status
-    setTwitterConnected(isTwitterConnected());
+    const isConnected = isTwitterConnected();
+    setTwitterConnected(isConnected);
   }, []);
 
   const handleGenerate = async () => {
@@ -65,6 +69,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     }
 
     setIsGenerating(true);
+    setGeneratedTweets([]);
     
     try {
       const tweets = await generateTweets({
@@ -86,6 +91,13 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleApiKeySubmit = (key: string) => {
+    setOpenaiApiKey(key);
+    setShowApiSuccess(true);
+    toast.success("Claude API key saved successfully");
+    setTimeout(() => setShowApiSuccess(false), 5000);
   };
 
   const handleTweetSelect = (tweet: any) => {
@@ -155,6 +167,28 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {showApiSuccess && (
+            <Alert className="bg-green-50 border-green-200 mb-4">
+              <AlertDescription className="text-green-700 flex items-center">
+                <div className="bg-green-100 p-1 rounded-full mr-2">
+                  <div className="bg-green-500 h-2 w-2 rounded-full"></div>
+                </div>
+                Claude API key is connected and ready to use
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {twitterConnected && (
+            <Alert className="bg-blue-50 border-blue-200 mb-4">
+              <AlertDescription className="text-blue-700 flex items-center">
+                <div className="bg-blue-100 p-1 rounded-full mr-2">
+                  <div className="bg-blue-500 h-2 w-2 rounded-full"></div>
+                </div>
+                Twitter account connected and ready to post
+              </AlertDescription>
+            </Alert>
+          )}
+
           {!openaiApiKey && (
             <div className="space-y-4">
               <p className="text-sm text-amber-600">
@@ -165,7 +199,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                 label="Claude API Key"
                 placeholder="sk-ant-..."
                 description="Your API key is stored locally and never sent to our servers."
-                onApiKeySubmit={(key) => setOpenaiApiKey(key)}
+                onApiKeySubmit={handleApiKeySubmit}
               />
             </div>
           )}
@@ -215,6 +249,15 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
         </CardContent>
       </Card>
 
+      {isGenerating && (
+        <Card className="w-full p-8 flex justify-center items-center">
+          <div className="text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-4 text-muted-foreground">Generating tweets with Claude AI...</p>
+          </div>
+        </Card>
+      )}
+
       {generatedTweets.length > 0 && (
         <Tabs defaultValue="tweets" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -229,7 +272,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                   key={tweet.id}
                   tweet={tweet}
                   isSelected={selectedTweet?.id === tweet.id}
-                  onSelect={() => handleTweetSelect(tweet)}
+                  onSelect={() => setSelectedTweet(tweet)}
                 />
               ))}
             </div>

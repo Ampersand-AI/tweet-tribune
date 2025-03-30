@@ -27,7 +27,7 @@ export const generateTweets = async ({
   topic,
   tone,
   customInstructions = "",
-}: TweetGenerationProps): Promise<any[]> => {
+}: TweetGenerationProps): Promise<Tweet[]> => {
   try {
     const apiKey = localStorage.getItem("openai-api-key"); // Using the same localStorage key
     
@@ -64,7 +64,7 @@ export const generateTweets = async ({
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
       console.error("Claude API error:", errorData);
       throw new Error(errorData.error?.message || "Failed to generate tweets");
     }
@@ -76,7 +76,12 @@ export const generateTweets = async ({
     
     try {
       // Claude returns the content in the response text
-      const content = data.content[0].text;
+      const content = data.content?.[0]?.text;
+      
+      if (!content) {
+        throw new Error("Empty response from Claude API");
+      }
+      
       console.log("Raw content from Claude:", content);
       
       // Try multiple ways to extract valid JSON
@@ -87,7 +92,6 @@ export const generateTweets = async ({
         if (Array.isArray(parsedContent)) {
           tweets = parsedContent;
         } else if (parsedContent && typeof parsedContent === 'object') {
-          // Check if it's an object with a tweets array
           if (Array.isArray(parsedContent.tweets)) {
             tweets = parsedContent.tweets;
           } else {
@@ -104,18 +108,22 @@ export const generateTweets = async ({
                           
         if (jsonMatch && jsonMatch[1]) {
           const extractedJson = jsonMatch[1].trim();
-          const parsedJson = JSON.parse(extractedJson);
-          
-          if (Array.isArray(parsedJson)) {
-            tweets = parsedJson;
-          } else if (parsedJson && typeof parsedJson === 'object') {
-            // Check if it's an object with a tweets array
-            if (Array.isArray(parsedJson.tweets)) {
-              tweets = parsedJson.tweets;
-            } else {
-              // If it's just a single tweet object
-              tweets = [parsedJson];
+          try {
+            const parsedJson = JSON.parse(extractedJson);
+            
+            if (Array.isArray(parsedJson)) {
+              tweets = parsedJson;
+            } else if (parsedJson && typeof parsedJson === 'object') {
+              if (Array.isArray(parsedJson.tweets)) {
+                tweets = parsedJson.tweets;
+              } else {
+                // If it's just a single tweet object
+                tweets = [parsedJson];
+              }
             }
+          } catch (nestedError) {
+            console.error("Error parsing extracted JSON:", nestedError);
+            throw new Error("Invalid JSON format in Claude response");
           }
         } else {
           throw new Error("Could not extract valid JSON from Claude response");
@@ -124,15 +132,20 @@ export const generateTweets = async ({
       
       console.log("Final tweets array:", tweets);
       
+      if (tweets.length === 0) {
+        throw new Error("No tweets were generated");
+      }
+      
       // Add proper IDs and image URLs
       return tweets.map((tweet: Tweet, index: number) => ({
         id: `tweet-${Date.now()}-${index}`,
         content: tweet.content || "No content provided",
+        imagePrompt: tweet.imagePrompt || `Image related to ${topic}`,
         imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
       }));
     } catch (e) {
       console.error("Error parsing Claude response:", e);
-      toast.error("Error parsing the generated tweets");
+      toast.error(e instanceof Error ? e.message : "Error parsing the generated tweets");
       return [];
     }
   } catch (error) {
