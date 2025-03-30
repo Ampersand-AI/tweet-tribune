@@ -15,6 +15,7 @@ const Index = () => {
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
 
   const handleTopicSelected = (topic: Topic) => {
+    console.log("Selected topic:", topic);
     setSelectedTopic(topic);
   };
 
