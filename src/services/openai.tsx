@@ -1,6 +1,8 @@
 // AI services for generating tweets and managing Twitter/LinkedIn integration
 import React from "react";
 import { toast } from "sonner";
+import ToastImageContent from "@/components/toast/ToastImageContent";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -400,26 +402,30 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
       }
     );
     
-    // Show a separate toast with the screenshot
+    // Show a separate toast with the screenshot using shadcn toast
     setTimeout(() => {
-      // Use a custom component for the toast description
-      const ToastContent = () => (
-        <div className="mt-2">
-          <img 
-            src={screenshotUrl} 
-            alt={`${platform} post screenshot`} 
-            className="rounded-md w-full max-h-32 object-cover"
-          />
-        </div>
-      );
-      
+      // For regular toast
       toast(
         `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`, 
         {
-          description: <ToastContent />,
+          description: React.createElement(ToastImageContent, { 
+            imageUrl: screenshotUrl, 
+            platform: platform 
+          }),
           duration: 8000,
         }
       );
+      
+      // For shadcn toast
+      const { toast: shadcnToast } = useToast();
+      shadcnToast({
+        title: `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`,
+        description: React.createElement(ToastImageContent, { 
+          imageUrl: screenshotUrl, 
+          platform: platform 
+        }),
+        duration: 8000,
+      });
     }, 1000);
     
     // Save to post history
