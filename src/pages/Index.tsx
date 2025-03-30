@@ -25,7 +25,7 @@ const Index = () => {
         
         <TrendingTopicsList onTopicSelected={handleTopicSelected} />
         
-        <TweetGenerator selectedTopic={selectedTopic} />
+        {selectedTopic && <TweetGenerator selectedTopic={selectedTopic} />}
       </div>
     </MainLayout>
   );

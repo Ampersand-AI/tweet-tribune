@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface ApiKeyFormProps {
   keyType: "openai" | "twitter" | "twitter-secret";
@@ -24,7 +24,6 @@ const ApiKeyForm = ({
 }: ApiKeyFormProps) => {
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState("");
-  const { toast } = useToast();
 
   // Load saved key on component mount
   useEffect(() => {
@@ -54,9 +53,8 @@ const ApiKeyForm = ({
     onApiKeySubmit(apiKey);
     setError("");
     
-    toast({
-      title: "API Key Saved",
-      description: `Your ${label} has been saved successfully.`,
+    toast.success("API Key Saved", {
+      description: `Your ${label} has been saved successfully.`
     });
   };
 

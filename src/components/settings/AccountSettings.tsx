@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Twitter, Linkedin } from "lucide-react";
 import ApiKeyForm from "./ApiKeyForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
-  const { toast } = useToast();
 
   const handleTwitterConnect = () => {
     // In a real app, this would trigger OAuth flow
@@ -18,14 +17,12 @@ const AccountSettings = () => {
     setTwitterConnected(!twitterConnected);
     
     if (!twitterConnected) {
-      toast({
-        title: "Twitter Connected",
-        description: "Your Twitter account has been successfully connected.",
+      toast.success("Twitter Connected", {
+        description: "Your Twitter account has been successfully connected."
       });
     } else {
-      toast({
-        title: "Twitter Disconnected",
-        description: "Your Twitter account has been disconnected.",
+      toast.success("Twitter Disconnected", {
+        description: "Your Twitter account has been disconnected."
       });
     }
   };
@@ -35,14 +32,12 @@ const AccountSettings = () => {
     setLinkedinConnected(!linkedinConnected);
     
     if (!linkedinConnected) {
-      toast({
-        title: "LinkedIn Connected",
-        description: "Your LinkedIn account has been successfully connected.",
+      toast.success("LinkedIn Connected", {
+        description: "Your LinkedIn account has been successfully connected."
       });
     } else {
-      toast({
-        title: "LinkedIn Disconnected",
-        description: "Your LinkedIn account has been disconnected.",
+      toast.success("LinkedIn Disconnected", {
+        description: "Your LinkedIn account has been disconnected."
       });
     }
   };
