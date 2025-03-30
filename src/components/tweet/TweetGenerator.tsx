@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import TweetPreview from "./TweetPreview";
 import ApiKeyForm from "../settings/ApiKeyForm";
+import { useToast } from "@/hooks/use-toast";
 
 interface TweetGeneratorProps {
   selectedTopic: {
@@ -47,14 +48,27 @@ const MOCK_TWEETS = [
 const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [generatedTweets, setGeneratedTweets] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [toneSelection, setToneSelection] = useState("professional");
   const [customPrompt, setCustomPrompt] = useState("");
   const [selectedTweet, setSelectedTweet] = useState<any>(null);
+  const { toast } = useToast();
+
+  // Load OpenAI API key from localStorage on component mount
+  useEffect(() => {
+    const savedKey = localStorage.getItem("openai-api-key");
+    if (savedKey) {
+      setOpenaiApiKey(savedKey);
+    }
+  }, []);
 
   const handleGenerate = () => {
-    if (!apiKey) {
-      // Show error for missing API key
+    if (!openaiApiKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please provide your OpenAI API key in the settings.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -64,6 +78,11 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     setTimeout(() => {
       setGeneratedTweets(MOCK_TWEETS);
       setIsGenerating(false);
+      
+      toast({
+        title: "Tweets Generated",
+        description: "Your tweets have been generated successfully.",
+      });
     }, 2000);
   };
 
@@ -97,13 +116,22 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!apiKey && (
-            <ApiKeyForm
-              onApiKeySubmit={(key) => setApiKey(key)}
-            />
+          {!openaiApiKey && (
+            <div className="space-y-4">
+              <p className="text-sm text-amber-600">
+                OpenAI API Key is required to generate tweets. You can add it below or in the Account Settings page.
+              </p>
+              <ApiKeyForm
+                keyType="openai"
+                label="OpenAI API Key"
+                placeholder="sk-..."
+                description="Your API key is stored locally and never sent to our servers."
+                onApiKeySubmit={(key) => setOpenaiApiKey(key)}
+              />
+            </div>
           )}
 
-          {apiKey && (
+          {openaiApiKey && (
             <>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">

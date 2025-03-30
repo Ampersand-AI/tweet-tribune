@@ -1,35 +1,63 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useToast } from "@/hooks/use-toast";
 
 interface ApiKeyFormProps {
+  keyType: "openai" | "twitter" | "twitter-secret";
+  label: string;
+  placeholder: string;
+  description?: string;
   onApiKeySubmit: (apiKey: string) => void;
 }
 
-const ApiKeyForm = ({ onApiKeySubmit }: ApiKeyFormProps) => {
+const ApiKeyForm = ({ 
+  keyType, 
+  label, 
+  placeholder, 
+  description, 
+  onApiKeySubmit 
+}: ApiKeyFormProps) => {
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState("");
+  const { toast } = useToast();
+
+  // Load saved key on component mount
+  useEffect(() => {
+    const savedKey = localStorage.getItem(`${keyType}-api-key`);
+    if (savedKey) {
+      setApiKey(savedKey);
+    }
+  }, [keyType]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!apiKey.trim()) {
-      setError("API key is required");
+      setError(`${label} is required`);
       return;
     }
 
-    // Basic validation for OpenAI API key format
-    if (!apiKey.startsWith("sk-") || apiKey.length < 20) {
+    // Basic validation based on key type
+    if (keyType === "openai" && (!apiKey.startsWith("sk-") || apiKey.length < 20)) {
       setError("Please enter a valid OpenAI API key");
       return;
     }
 
+    // Save key to localStorage
+    localStorage.setItem(`${keyType}-api-key`, apiKey);
+    
     onApiKeySubmit(apiKey);
     setError("");
+    
+    toast({
+      title: "API Key Saved",
+      description: `Your ${label} has been saved successfully.`,
+    });
   };
 
   return (
@@ -44,21 +72,23 @@ const ApiKeyForm = ({ onApiKeySubmit }: ApiKeyFormProps) => {
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="api-key">OpenAI API Key</Label>
+          <Label htmlFor={`${keyType}-api-key`}>{label}</Label>
           <Input
-            id="api-key"
-            placeholder="sk-..."
+            id={`${keyType}-api-key`}
+            placeholder={placeholder}
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">
-            Your API key is stored locally and never sent to our servers.
-          </p>
+          {description && (
+            <p className="text-xs text-muted-foreground">
+              {description}
+            </p>
+          )}
         </div>
         
         <Button type="submit" className="w-full">
-          Save API Key
+          Save {label}
         </Button>
       </form>
     </div>
