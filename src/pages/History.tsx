@@ -11,13 +11,15 @@ const History = () => {
 
   useEffect(() => {
     // Load tweet history
-    setTweetHistory(getTweetHistory());
+    const history = getTweetHistory();
+    console.log("Loaded tweet history:", history);
+    setTweetHistory(history);
   }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "posted":
-        return <Badge variant="success">Posted</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600">Posted</Badge>;
       case "scheduled":
         return <Badge variant="secondary">Scheduled</Badge>;
       case "canceled":
@@ -55,7 +57,16 @@ const History = () => {
                       key={tweet.id}
                       className="flex flex-col sm:flex-row gap-4 p-4 border rounded-lg"
                     >
-                      <div className="w-full">
+                      <div className="w-full sm:w-1/4">
+                        {tweet.imageUrl && (
+                          <img 
+                            src={tweet.imageUrl} 
+                            alt="Tweet preview" 
+                            className="object-cover w-full h-32 rounded-md" 
+                          />
+                        )}
+                      </div>
+                      <div className="w-full sm:w-3/4">
                         <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
                           <p className="text-sm">{tweet.content}</p>
                           <div>
@@ -90,6 +101,11 @@ const History = () => {
                 <p className="text-muted-foreground">
                   No tweet history found. Post or schedule tweets to see your activity here.
                 </p>
+                <Link to="/schedule">
+                  <Button className="mt-4">
+                    Schedule Tweets
+                  </Button>
+                </Link>
               </div>
             )}
           </CardContent>

@@ -11,7 +11,7 @@ interface TweetGenerationProps {
   topic: string;
   tone: string;
   customInstructions?: string;
-  apiProvider?: "claude" | "gemini" | "deepseek";
+  apiProvider?: "deepseek";
 }
 
 interface Tweet {
@@ -79,173 +79,6 @@ const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
       imagePrompt: `Image related to ${topic}`,
       imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
     }));
-};
-
-// Generate tweets using Claude API
-const generateTweetsWithClaude = async (
-  topic: string,
-  tone: string,
-  customInstructions: string = ""
-): Promise<Tweet[]> => {
-  try {
-    const apiKey = localStorage.getItem("openai-api-key");
-    
-    if (!apiKey) {
-      toast.error("Claude API key is required");
-      return [];
-    }
-
-    const messages: Message[] = [
-      {
-        role: "user",
-        content: `Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
-        Each tweet should be under 280 characters and include relevant hashtags.`
-      }
-    ];
-
-    console.log("Sending request to Claude API with messages:", messages);
-
-    try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 1000,
-          messages,
-          temperature: 0.7,
-          system: "You are a professional tweet writer. Generate exactly 3 engaging tweets about the topic provided."
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
-        console.error("Claude API error:", errorData);
-        toast.error(`API Error: ${errorData.error?.message || "Failed to generate tweets"}`);
-        return [];
-      }
-
-      const data = await response.json();
-      console.log("Claude API response:", data);
-      
-      // Extract content from Claude's response
-      const content = data.content?.[0]?.text;
-      
-      if (!content) {
-        toast.error("Empty response from Claude API");
-        return [];
-      }
-      
-      console.log("Raw content from Claude:", content);
-      
-      // Extract tweets from the content
-      const tweets = extractTweetsFromText(content, topic);
-      
-      if (tweets.length === 0) {
-        toast.error("Couldn't parse tweets from Claude response");
-        return [];
-      }
-      
-      toast.success(`Generated ${tweets.length} tweets with Claude`);
-      return tweets;
-    } catch (fetchError: any) {
-      console.error("Fetch error:", fetchError);
-      toast.error(`Network error: ${fetchError.message || "Failed to connect to Claude API"}`);
-      return [];
-    }
-  } catch (error: any) {
-    console.error("Error generating tweets with Claude:", error);
-    toast.error(error instanceof Error ? error.message : "Failed to generate tweets");
-    return [];
-  }
-};
-
-// Generate tweets using Gemini API
-const generateTweetsWithGemini = async (
-  topic: string,
-  tone: string,
-  customInstructions: string = ""
-): Promise<Tweet[]> => {
-  try {
-    const apiKey = localStorage.getItem("gemini-api-key");
-    
-    if (!apiKey) {
-      toast.error("Gemini API key is required");
-      return [];
-    }
-
-    console.log("Sending request to Gemini API");
-
-    try {
-      const prompt = `Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
-        Each tweet should be under 280 characters and include relevant hashtags.`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1000,
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
-        console.error("Gemini API error:", errorData);
-        toast.error(`API Error: ${errorData.error?.message || "Failed to generate tweets"}`);
-        return [];
-      }
-
-      const data = await response.json();
-      console.log("Gemini API response:", data);
-      
-      // Extract content from Gemini's response
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!content) {
-        toast.error("Empty response from Gemini API");
-        return [];
-      }
-      
-      console.log("Raw content from Gemini:", content);
-      
-      // Extract tweets from the content
-      const tweets = extractTweetsFromText(content, topic);
-      
-      if (tweets.length === 0) {
-        toast.error("Couldn't parse tweets from Gemini response");
-        return [];
-      }
-      
-      toast.success(`Generated ${tweets.length} tweets with Gemini`);
-      return tweets;
-    } catch (fetchError: any) {
-      console.error("Fetch error:", fetchError);
-      toast.error(`Network error: ${fetchError.message || "Failed to connect to Gemini API"}`);
-      return [];
-    }
-  } catch (error: any) {
-    console.error("Error generating tweets with Gemini:", error);
-    toast.error(error instanceof Error ? error.message : "Failed to generate tweets");
-    return [];
-  }
 };
 
 // Generate tweets using DeepSeek API
@@ -338,19 +171,10 @@ export const generateTweets = async ({
   topic,
   tone,
   customInstructions = "",
-  apiProvider = "claude"
+  apiProvider = "deepseek"
 }: TweetGenerationProps): Promise<Tweet[]> => {
   console.log(`Generating tweets using ${apiProvider} API`);
-  
-  switch (apiProvider) {
-    case "gemini":
-      return generateTweetsWithGemini(topic, tone, customInstructions);
-    case "deepseek":
-      return generateTweetsWithDeepSeek(topic, tone, customInstructions);
-    case "claude":
-    default:
-      return generateTweetsWithClaude(topic, tone, customInstructions);
-  }
+  return generateTweetsWithDeepSeek(topic, tone, customInstructions);
 };
 
 // Twitter connection and tweet functionality
