@@ -32,6 +32,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [deepseekApiKey, setDeepseekApiKey] = useState("");
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [showApiSuccess, setShowApiSuccess] = useState(false);
+  const [selectedTweets, setSelectedTweets] = useState<string[]>([]);
 
   const tones = [
     { value: "professional", label: "Professional" },
@@ -66,6 +67,16 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleTweetSelect = (tweetId: string) => {
+    setSelectedTweets(prev => {
+      if (prev.includes(tweetId)) {
+        return prev.filter(id => id !== tweetId);
+      } else {
+        return [...prev, tweetId];
+      }
+    });
   };
 
   useEffect(() => {
@@ -212,7 +223,12 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
           <h3 className="text-xl font-semibold mb-4">Generated Tweets</h3>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {generatedTweets.map((tweet, index) => (
-              <TweetPreview key={index} tweet={tweet} />
+              <TweetPreview 
+                key={index} 
+                tweet={tweet} 
+                isSelected={selectedTweets.includes(tweet.id)}
+                onSelect={() => handleTweetSelect(tweet.id)}
+              />
             ))}
           </div>
         </div>
