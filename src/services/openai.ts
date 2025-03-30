@@ -13,6 +13,16 @@ interface TweetGenerationProps {
   customInstructions?: string;
 }
 
+interface Tweet {
+  id?: string;
+  content: string;
+  imagePrompt?: string;
+  imageUrl?: string;
+  scheduledAt?: string;
+  postedAt?: string;
+  status?: string;
+}
+
 export const generateTweets = async ({
   topic,
   tone,
@@ -62,7 +72,7 @@ export const generateTweets = async ({
     const data = await response.json();
     console.log("Claude API response:", data);
     
-    let tweets = [];
+    let tweets: Tweet[] = [];
     
     try {
       // Claude returns the content in the response text
@@ -72,12 +82,17 @@ export const generateTweets = async ({
       // Try multiple ways to extract valid JSON
       // First, try direct JSON parsing
       try {
-        tweets = JSON.parse(content);
-        if (!Array.isArray(tweets)) {
-          if (tweets.tweets && Array.isArray(tweets.tweets)) {
-            tweets = tweets.tweets;
+        const parsedContent = JSON.parse(content);
+        
+        if (Array.isArray(parsedContent)) {
+          tweets = parsedContent;
+        } else if (parsedContent && typeof parsedContent === 'object') {
+          // Check if it's an object with a tweets array
+          if (Array.isArray(parsedContent.tweets)) {
+            tweets = parsedContent.tweets;
           } else {
-            tweets = [tweets];
+            // If it's just a single tweet object
+            tweets = [parsedContent];
           }
         }
       } catch (jsonError) {
@@ -89,12 +104,17 @@ export const generateTweets = async ({
                           
         if (jsonMatch && jsonMatch[1]) {
           const extractedJson = jsonMatch[1].trim();
-          tweets = JSON.parse(extractedJson);
-          if (!Array.isArray(tweets)) {
-            if (tweets.tweets && Array.isArray(tweets.tweets)) {
-              tweets = tweets.tweets;
+          const parsedJson = JSON.parse(extractedJson);
+          
+          if (Array.isArray(parsedJson)) {
+            tweets = parsedJson;
+          } else if (parsedJson && typeof parsedJson === 'object') {
+            // Check if it's an object with a tweets array
+            if (Array.isArray(parsedJson.tweets)) {
+              tweets = parsedJson.tweets;
             } else {
-              tweets = [tweets];
+              // If it's just a single tweet object
+              tweets = [parsedJson];
             }
           }
         } else {
@@ -105,9 +125,9 @@ export const generateTweets = async ({
       console.log("Final tweets array:", tweets);
       
       // Add proper IDs and image URLs
-      return tweets.map((tweet: any, index: number) => ({
+      return tweets.map((tweet: Tweet, index: number) => ({
         id: `tweet-${Date.now()}-${index}`,
-        content: tweet.content || tweet.text || "No content provided",
+        content: tweet.content || "No content provided",
         imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
       }));
     } catch (e) {
