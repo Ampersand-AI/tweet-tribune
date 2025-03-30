@@ -1,4 +1,3 @@
-
 // AI services for generating tweets and managing Twitter/LinkedIn integration
 import { toast } from "sonner";
 
@@ -24,6 +23,7 @@ interface Tweet {
   postedAt?: string;
   status?: string;
   platform?: "twitter" | "linkedin";
+  screenshotUrl?: string;
 }
 
 // Helper function to extract tweets from text content
@@ -357,6 +357,19 @@ export const isLinkedinConnected = (): boolean => {
   return connected && hasClientId && hasAuthKey;
 };
 
+// Function to generate a fake screenshot URL based on platform and content
+const generateScreenshotUrl = (platform: "twitter" | "linkedin", content: string): string => {
+  // Generate a deterministic screenshot based on content
+  const contentHash = content.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const imageIndex = contentHash % 5 + 1; // Use mod 5 to get a number between 1-5
+  
+  if (platform === "twitter") {
+    return `https://source.unsplash.com/featured/?twitter,post&${imageIndex}`;
+  } else {
+    return `https://source.unsplash.com/featured/?linkedin,post&${imageIndex}`;
+  }
+};
+
 export const postTweet = async (tweetContent: string, imageUrl?: string, platform: "twitter" | "linkedin" = "twitter"): Promise<boolean> => {
   if (platform === "twitter" && !isTwitterConnected()) {
     toast.error("Please connect to Twitter first");
@@ -369,8 +382,39 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
   }
   
   try {
-    // For now, we'll just simulate a successful post
-    toast.success(`${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`);
+    // Generate a fake screenshot URL for the post
+    const screenshotUrl = generateScreenshotUrl(platform, tweetContent);
+    
+    // For now, we'll just simulate a successful post with a confirmation toast that includes the screenshot
+    toast(
+      `${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`,
+      {
+        description: tweetContent.substring(0, 60) + "...",
+        action: {
+          label: "View",
+          onClick: () => window.open(platform === "twitter" ? "https://twitter.com" : "https://linkedin.com"),
+        },
+        icon: platform === "twitter" ? "🐦" : "🔗",
+        duration: 5000,
+      }
+    );
+    
+    // Show a separate toast with the screenshot
+    setTimeout(() => {
+      toast(
+        `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`, 
+        {
+          description: <div className="mt-2">
+            <img 
+              src={screenshotUrl} 
+              alt={`${platform} post screenshot`} 
+              className="rounded-md w-full max-h-32 object-cover"
+            />
+          </div>,
+          duration: 8000,
+        }
+      );
+    }, 1000);
     
     // Save to post history
     const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");
@@ -380,7 +424,8 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
       imageUrl: imageUrl || "",
       postedAt: new Date().toISOString(),
       status: "posted",
-      platform: platform
+      platform: platform,
+      screenshotUrl: screenshotUrl
     });
     localStorage.setItem("tweet-history", JSON.stringify(history));
     

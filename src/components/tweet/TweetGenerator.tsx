@@ -61,10 +61,17 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
         apiProvider: selectedApiProvider,
         platform: selectedPlatform
       });
-      setGeneratedTweets(tweets);
+      
+      // Ensure each tweet has the platform property set
+      const tweetsWithPlatform = tweets.map(tweet => ({
+        ...tweet,
+        platform: selectedPlatform
+      }));
+      
+      setGeneratedTweets(tweetsWithPlatform);
       
       // Send generated tweets to Schedule page
-      sendGeneratedTweetsToSchedule(tweets);
+      sendGeneratedTweetsToSchedule(tweetsWithPlatform);
     } catch (error) {
       console.error("Error generating posts:", error);
     } finally {
