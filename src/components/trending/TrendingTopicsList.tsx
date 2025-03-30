@@ -4,6 +4,7 @@ import TrendingTopicCard from "./TrendingTopicCard";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 // Mock data for trending topics
 const MOCK_TRENDING_TOPICS = [
@@ -45,8 +46,15 @@ const MOCK_TRENDING_TOPICS = [
   },
 ];
 
+interface Topic {
+  id: string;
+  title: string;
+  description: string;
+  source: "twitter" | "linkedin";
+}
+
 interface TrendingTopicsListProps {
-  onTopicSelected: (topic: any) => void;
+  onTopicSelected: (topic: Topic) => void;
 }
 
 const TrendingTopicsList = ({ onTopicSelected }: TrendingTopicsListProps) => {
@@ -60,6 +68,7 @@ const TrendingTopicsList = ({ onTopicSelected }: TrendingTopicsListProps) => {
     // Simulate API call to refresh topics
     setTimeout(() => {
       setIsRefreshing(false);
+      toast.success("Topics refreshed");
     }, 1500);
   };
 
@@ -85,6 +94,12 @@ const TrendingTopicsList = ({ onTopicSelected }: TrendingTopicsListProps) => {
     
     setTopics([newTopic, ...topics]);
     setSearchTerm("");
+    
+    // Automatically select the new custom topic
+    setSelectedTopicId(newTopic.id);
+    onTopicSelected(newTopic);
+    
+    toast.success(`Custom topic "${searchTerm}" added`);
   };
 
   const filteredTopics = topics.filter(topic => 

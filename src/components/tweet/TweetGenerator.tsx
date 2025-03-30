@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "lucide-react";
+import { Calendar, Send, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -13,9 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TweetPreview from "./TweetPreview";
 import ApiKeyForm from "../settings/ApiKeyForm";
-import { useToast } from "@/hooks/use-toast";
+import { generateTweets, postTweet, scheduleTweet } from "@/services/openai";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { format } from "date-fns";
 
 interface TweetGeneratorProps {
   selectedTopic: {
@@ -26,25 +30,6 @@ interface TweetGeneratorProps {
   } | null;
 }
 
-// Mock tweet generations
-const MOCK_TWEETS = [
-  {
-    id: "tweet1",
-    content: "Exciting developments in #AIHealthcare! New studies show AI diagnostic tools are reaching 95% accuracy for early disease detection. The future of medicine looks promising! 💻🔬 #HealthTech",
-    imageUrl: "https://placehold.co/600x400/png?text=AI+Healthcare+Innovation",
-  },
-  {
-    id: "tweet2",
-    content: "AI is revolutionizing patient care with personalized treatment plans. A recent study shows 30% better outcomes when AI assists healthcare providers. What are your thoughts on AI in medicine? #AIHealthcare",
-    imageUrl: "https://placehold.co/600x400/png?text=AI+Patient+Care",
-  },
-  {
-    id: "tweet3",
-    content: "Did you know? AI-powered diagnostic tools can now detect certain conditions faster than human doctors. This isn't about replacing healthcare workers - it's about giving them superpowers! #AIHealthcare #FutureTech",
-    imageUrl: "https://placehold.co/600x400/png?text=AI+Diagnostics",
-  },
-];
-
 const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [generatedTweets, setGeneratedTweets] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -52,7 +37,9 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [toneSelection, setToneSelection] = useState("professional");
   const [customPrompt, setCustomPrompt] = useState("");
   const [selectedTweet, setSelectedTweet] = useState<any>(null);
-  const { toast } = useToast();
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
 
   // Load OpenAI API key from localStorage on component mount
   useEffect(() => {
@@ -62,32 +49,68 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     }
   }, []);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!openaiApiKey) {
-      toast({
-        title: "API Key Required",
-        description: "Please provide your OpenAI API key in the settings.",
-        variant: "destructive",
-      });
+      toast.error("Please provide your OpenAI API key in the settings");
+      return;
+    }
+
+    if (!selectedTopic) {
+      toast.error("Please select a topic first");
       return;
     }
 
     setIsGenerating(true);
     
-    // Simulate API call delay
-    setTimeout(() => {
-      setGeneratedTweets(MOCK_TWEETS);
-      setIsGenerating(false);
-      
-      toast({
-        title: "Tweets Generated",
-        description: "Your tweets have been generated successfully.",
+    try {
+      const tweets = await generateTweets({
+        topic: selectedTopic.title,
+        tone: toneSelection,
+        customInstructions: customPrompt
       });
-    }, 2000);
+      
+      setGeneratedTweets(tweets);
+      
+      if (tweets.length > 0) {
+        toast.success("Tweets generated successfully");
+      } else {
+        toast.error("No tweets were generated");
+      }
+    } catch (error) {
+      console.error("Error generating tweets:", error);
+      toast.error("Failed to generate tweets");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleTweetSelect = (tweet: any) => {
     setSelectedTweet(tweet);
+  };
+
+  const handlePostNow = async () => {
+    if (!selectedTweet) return;
+    
+    try {
+      await postTweet(selectedTweet.content);
+    } catch (error) {
+      toast.error("Failed to post tweet");
+    }
+  };
+
+  const handleScheduleTweet = async () => {
+    if (!selectedTweet || !scheduleDate || !scheduleTime) {
+      toast.error("Please fill all the scheduling details");
+      return;
+    }
+    
+    try {
+      const scheduledDateTime = new Date(`${scheduleDate}T${scheduleTime}`);
+      await scheduleTweet(selectedTweet.content, scheduledDateTime);
+      setIsScheduleDialogOpen(false);
+    } catch (error) {
+      toast.error("Failed to schedule tweet");
+    }
   };
 
   if (!selectedTopic) {
@@ -119,7 +142,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
           {!openaiApiKey && (
             <div className="space-y-4">
               <p className="text-sm text-amber-600">
-                OpenAI API Key is required to generate tweets. You can add it below or in the Account Settings page.
+                OpenAI API Key is required to generate tweets. You can add it below.
               </p>
               <ApiKeyForm
                 keyType="openai"
@@ -232,22 +255,56 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                         alt="Tweet preview" 
                         className="object-cover w-full h-full"
                       />
-                      <Button
-                        variant="outline" 
-                        size="sm"
-                        className="absolute bottom-2 right-2"
-                      >
-                        Regenerate Image
-                      </Button>
                     </div>
                   </div>
                 </CardContent>
                 <CardFooter className="flex justify-between">
-                  <Button variant="outline">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Schedule for Later
+                  <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline">
+                        <Clock className="mr-2 h-4 w-4" />
+                        Schedule for Later
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Schedule Tweet</DialogTitle>
+                        <DialogDescription>
+                          Choose when you want this tweet to be posted
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="schedule-date">Date</Label>
+                          <Input 
+                            id="schedule-date" 
+                            type="date" 
+                            value={scheduleDate}
+                            onChange={(e) => setScheduleDate(e.target.value)}
+                            min={format(new Date(), "yyyy-MM-dd")}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="schedule-time">Time</Label>
+                          <Input 
+                            id="schedule-time" 
+                            type="time" 
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={handleScheduleTweet}>
+                          Schedule Tweet
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Button onClick={handlePostNow}>
+                    <Send className="mr-2 h-4 w-4" />
+                    Post Now
                   </Button>
-                  <Button>Post Now</Button>
                 </CardFooter>
               </Card>
             )}
