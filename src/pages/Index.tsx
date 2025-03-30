@@ -11,6 +11,15 @@ interface Topic {
   source: "twitter" | "linkedin";
 }
 
+// Create a custom event to share generated tweets with other components
+export const sendGeneratedTweetsToSchedule = (tweets: any[]) => {
+  // Store tweets in local storage for Schedule page to access
+  localStorage.setItem("generated-tweets", JSON.stringify(tweets));
+  
+  // Dispatch a custom event to notify other components
+  window.dispatchEvent(new CustomEvent('tweetsGenerated', { detail: tweets }));
+};
+
 const Index = () => {
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
 

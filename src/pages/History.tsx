@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { getTweetHistory } from "@/services/openai";
 import { useEffect, useState } from "react";
-import { CalendarIcon, Clock } from "lucide-react";
+import { CalendarIcon, Clock, ThumbsUp } from "lucide-react";
 
 const History = () => {
   const [tweetHistory, setTweetHistory] = useState<any[]>([]);
@@ -37,6 +37,9 @@ const History = () => {
     return dateB - dateA; // Most recent first
   });
 
+  // Filter only posted tweets
+  const postedTweets = sortedHistory.filter(tweet => tweet.status === "posted");
+
   return (
     <MainLayout>
       <div className="max-w-5xl mx-auto">
@@ -44,16 +47,16 @@ const History = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle>Your Tweet Activity</CardTitle>
+            <CardTitle>Your Posted Tweets</CardTitle>
             <CardDescription>
-              View all your tweet activity, including posted and scheduled tweets
+              View all your tweet activity that has been published to Twitter
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {sortedHistory.length > 0 ? (
+            {postedTweets.length > 0 ? (
               <div className="space-y-6">
-                {sortedHistory.map((tweet) => {
-                  const date = tweet.postedAt ? new Date(tweet.postedAt) : new Date(tweet.scheduledAt);
+                {postedTweets.map((tweet) => {
+                  const date = new Date(tweet.postedAt);
                   return (
                     <div 
                       key={tweet.id}
@@ -93,6 +96,12 @@ const History = () => {
                             })}
                           </span>
                         </div>
+                        <div className="mt-3">
+                          <Button size="sm" variant="outline" className="text-xs">
+                            <ThumbsUp className="h-3 w-3 mr-1" />
+                            Like on Twitter
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -101,7 +110,7 @@ const History = () => {
             ) : (
               <div className="text-center py-12">
                 <p className="text-muted-foreground">
-                  No tweet history found. Post or schedule tweets to see your activity here.
+                  No posted tweets found yet. Schedule tweets to see them here after they're posted.
                 </p>
                 <Link to="/schedule">
                   <Button className="mt-4">

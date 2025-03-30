@@ -8,8 +8,7 @@ import {
   BarChart,
   Settings,
   Calendar,
-  Twitter,
-  Linkedin,
+  History,
   Menu,
   X,
 } from "lucide-react";
@@ -25,6 +24,7 @@ const Sidebar = () => {
     { name: "Dashboard", icon: Home, path: "/" },
     { name: "Analytics", icon: BarChart, path: "/analytics" },
     { name: "Schedule", icon: Calendar, path: "/schedule" },
+    { name: "History", icon: History, path: "/history" },
     { name: "Settings", icon: Settings, path: "/settings" },
   ];
 
@@ -54,22 +54,6 @@ const Sidebar = () => {
               {expanded && <span>{link.name}</span>}
             </Link>
           ))}
-        </div>
-
-        <div className="mt-6">
-          <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
-            {expanded && "CONNECTED ACCOUNTS"}
-          </div>
-          <div className="space-y-1 px-3 mt-1">
-            <Button variant="outline" className="w-full justify-start">
-              <Twitter className="h-5 w-5 text-twitter mr-3" />
-              {expanded && <span>Connect Twitter</span>}
-            </Button>
-            <Button variant="outline" className="w-full justify-start">
-              <Linkedin className="h-5 w-5 text-linkedin mr-3" />
-              {expanded && <span>Connect LinkedIn</span>}
-            </Button>
-          </div>
         </div>
       </div>
     </div>
