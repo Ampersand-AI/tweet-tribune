@@ -83,17 +83,17 @@ const AccountSettings = () => {
         <CardContent>
           <Tabs defaultValue="openai" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="openai">OpenAI</TabsTrigger>
+              <TabsTrigger value="openai">Claude AI</TabsTrigger>
               <TabsTrigger value="twitter">Twitter</TabsTrigger>
             </TabsList>
             
             <TabsContent value="openai" className="space-y-4 mt-4">
               <ApiKeyForm 
                 keyType="openai"
-                label="OpenAI API Key"
-                placeholder="sk-..."
+                label="Claude API Key"
+                placeholder="sk-ant-api..."
                 description="Your API key is stored locally and never sent to our servers."
-                onApiKeySubmit={(key) => console.log("OpenAI API key saved")}
+                onApiKeySubmit={(key) => console.log("Claude API key saved")}
               />
             </TabsContent>
             

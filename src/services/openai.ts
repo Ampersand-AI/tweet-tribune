@@ -1,9 +1,8 @@
-
-// OpenAI service for generating tweets and images
+// Claude AI service for generating tweets and images
 import { toast } from "sonner";
 
-interface OpenAIMessage {
-  role: "system" | "user" | "assistant";
+interface ClaudeMessage {
+  role: "user" | "assistant";
   content: string;
 }
 
@@ -19,35 +18,35 @@ export const generateTweets = async ({
   customInstructions = "",
 }: TweetGenerationProps): Promise<any[]> => {
   try {
-    const apiKey = localStorage.getItem("openai-api-key");
+    const apiKey = localStorage.getItem("openai-api-key"); // We'll keep using the same localStorage key for simplicity
     
     if (!apiKey) {
-      toast.error("OpenAI API key is required");
+      toast.error("Claude API key is required");
       return [];
     }
 
-    const messages: OpenAIMessage[] = [
-      {
-        role: "system",
-        content: `You are a professional tweet writer. Generate 3 unique, engaging tweets about the given topic. Each tweet should be under 280 characters, include relevant hashtags, and match the requested tone. Format your response as a JSON array of objects, where each object has 'content' and 'imagePrompt' properties.`
-      },
+    const messages: ClaudeMessage[] = [
       {
         role: "user",
-        content: `Write 3 ${tone} tweets about "${topic}". ${customInstructions}`
+        content: `You are a professional tweet writer. Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
+        Each tweet should be under 280 characters, include relevant hashtags. Format your response as a JSON array of objects, where each object has 'content' and 'imagePrompt' properties.
+        Only return valid JSON with no markdown formatting or additional text.`
       }
     ];
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "claude-3-opus-20240229",
+        max_tokens: 1000,
         messages,
         temperature: 0.7,
-        response_format: { type: "json_object" }
+        system: "You are a professional tweet writer. Generate exactly what the user asks for in JSON format."
       })
     });
 
@@ -60,8 +59,14 @@ export const generateTweets = async ({
     let tweets = [];
     
     try {
-      const parsedResponse = JSON.parse(data.choices[0].message.content);
-      tweets = parsedResponse.tweets || [];
+      // Claude returns the content in the response text
+      const content = data.content[0].text;
+      // Extract JSON from the content (in case Claude wraps it in markdown)
+      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/\{[\s\S]*\}/);
+      const jsonContent = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+      
+      const parsedResponse = JSON.parse(jsonContent);
+      tweets = parsedResponse.tweets || parsedResponse || [];
       
       // Add placeholder images until we implement image generation
       return tweets.map((tweet: any, index: number) => ({
@@ -70,7 +75,7 @@ export const generateTweets = async ({
         imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
       }));
     } catch (e) {
-      console.error("Error parsing OpenAI response:", e);
+      console.error("Error parsing Claude response:", e);
       toast.error("Error parsing the generated tweets");
       return [];
     }
