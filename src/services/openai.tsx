@@ -1,4 +1,5 @@
 // AI services for generating tweets and managing Twitter/LinkedIn integration
+import React from "react";
 import { toast } from "sonner";
 
 interface Message {
@@ -401,16 +402,21 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
     
     // Show a separate toast with the screenshot
     setTimeout(() => {
+      // Use a custom component for the toast description
+      const ToastContent = () => (
+        <div className="mt-2">
+          <img 
+            src={screenshotUrl} 
+            alt={`${platform} post screenshot`} 
+            className="rounded-md w-full max-h-32 object-cover"
+          />
+        </div>
+      );
+      
       toast(
         `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`, 
         {
-          description: <div className="mt-2">
-            <img 
-              src={screenshotUrl} 
-              alt={`${platform} post screenshot`} 
-              className="rounded-md w-full max-h-32 object-cover"
-            />
-          </div>,
+          description: <ToastContent />,
           duration: 8000,
         }
       );
