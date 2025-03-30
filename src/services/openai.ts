@@ -39,113 +39,128 @@ export const generateTweets = async ({
     const messages: ClaudeMessage[] = [
       {
         role: "user",
-        content: `You are a professional tweet writer. Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
-        Each tweet should be under 280 characters, include relevant hashtags. Format your response as a JSON array of tweets, where each tweet is an object with 'content' and 'imagePrompt' properties.
-        Only return valid JSON with no markdown formatting or additional text.`
+        content: `Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
+        Each tweet should be under 280 characters and include relevant hashtags.`
       }
     ];
 
     console.log("Sending request to Claude API with messages:", messages);
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
-      body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 1000,
-        messages,
-        temperature: 0.7,
-        system: "You are a professional tweet writer. Generate exactly what the user asks for in JSON format with an array of tweets. Each tweet should have content and imagePrompt properties."
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
-      console.error("Claude API error:", errorData);
-      throw new Error(errorData.error?.message || "Failed to generate tweets");
-    }
-
-    const data = await response.json();
-    console.log("Claude API response:", data);
-    
-    let tweets: Tweet[] = [];
-    
     try {
-      // Claude returns the content in the response text
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: "claude-3-haiku-20240307",
+          max_tokens: 1000,
+          messages,
+          temperature: 0.7,
+          system: "You are a professional tweet writer. Generate exactly 3 engaging tweets about the topic provided."
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
+        console.error("Claude API error:", errorData);
+        toast.error(`API Error: ${errorData.error?.message || "Failed to generate tweets"}`);
+        return [];
+      }
+
+      const data = await response.json();
+      console.log("Claude API response:", data);
+      
+      // Extract content from Claude's response
       const content = data.content?.[0]?.text;
       
       if (!content) {
-        throw new Error("Empty response from Claude API");
+        toast.error("Empty response from Claude API");
+        return [];
       }
       
       console.log("Raw content from Claude:", content);
       
-      // Try multiple ways to extract valid JSON
-      // First, try direct JSON parsing
-      try {
-        const parsedContent = JSON.parse(content);
-        
-        if (Array.isArray(parsedContent)) {
-          tweets = parsedContent;
-        } else if (parsedContent && typeof parsedContent === 'object') {
-          if (Array.isArray(parsedContent.tweets)) {
-            tweets = parsedContent.tweets;
-          } else {
-            // If it's just a single tweet object
-            tweets = [parsedContent];
-          }
-        }
-      } catch (jsonError) {
-        // If direct parsing fails, try to extract JSON from markdown
-        console.log("Direct JSON parse failed, trying to extract from markdown");
-        const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || 
-                          content.match(/\[([\s\S]*?)\]/) || 
-                          content.match(/(\{[\s\S]*\})/);
-                          
-        if (jsonMatch && jsonMatch[1]) {
-          const extractedJson = jsonMatch[1].trim();
-          try {
-            const parsedJson = JSON.parse(extractedJson);
+      // Parse the tweets from the content
+      // Since Claude may not return strictly formatted JSON, we'll extract the tweets manually
+      const tweetRegex = /(\d+\.\s*|"content":|•\s*)(.*?)(?=\n\d+\.|$|\n•|\n"content":)/gs;
+      const matches = Array.from(content.matchAll(tweetRegex));
+      
+      const extractedTweets = matches
+        .map(match => match[2].trim())
+        .filter(tweet => tweet.length > 0 && tweet.length <= 280);
+      
+      // If we couldn't extract tweets using regex, try parsing as JSON
+      let tweets: Tweet[] = [];
+      
+      if (extractedTweets.length > 0) {
+        tweets = extractedTweets.map((tweetContent, index) => ({
+          id: `tweet-${Date.now()}-${index}`,
+          content: tweetContent,
+          imagePrompt: `Image related to ${topic}`,
+          imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
+        }));
+      } else {
+        // Try to parse JSON
+        try {
+          // Look for JSON-like content in Claude's response
+          const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s) || 
+                            content.match(/\{\s*"tweets"\s*:\s*\[.*\]\s*\}/s);
+          
+          if (jsonMatch) {
+            const jsonStr = jsonMatch[0];
+            const parsedJson = JSON.parse(jsonStr);
             
             if (Array.isArray(parsedJson)) {
-              tweets = parsedJson;
-            } else if (parsedJson && typeof parsedJson === 'object') {
-              if (Array.isArray(parsedJson.tweets)) {
-                tweets = parsedJson.tweets;
-              } else {
-                // If it's just a single tweet object
-                tweets = [parsedJson];
-              }
+              // If it's a direct array of tweets
+              tweets = parsedJson.map((tweet, index) => ({
+                id: `tweet-${Date.now()}-${index}`,
+                content: tweet.content || tweet.text || "No content provided",
+                imagePrompt: tweet.imagePrompt || `Image related to ${topic}`,
+                imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
+              }));
+            } else if (parsedJson.tweets && Array.isArray(parsedJson.tweets)) {
+              // If it's an object with a "tweets" array
+              tweets = parsedJson.tweets.map((tweet, index) => ({
+                id: `tweet-${Date.now()}-${index}`,
+                content: tweet.content || tweet.text || "No content provided",
+                imagePrompt: tweet.imagePrompt || `Image related to ${topic}`,
+                imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
+              }));
             }
-          } catch (nestedError) {
-            console.error("Error parsing extracted JSON:", nestedError);
-            throw new Error("Invalid JSON format in Claude response");
           }
-        } else {
-          throw new Error("Could not extract valid JSON from Claude response");
+        } catch (jsonError) {
+          console.error("Error parsing JSON:", jsonError);
+          // If JSON parsing failed, manually create tweets from the content
+          const lines = content
+            .split("\n")
+            .filter(line => line.trim().length > 0 && line.trim().length <= 280)
+            .slice(0, 3);
+          
+          if (lines.length > 0) {
+            tweets = lines.map((line, index) => ({
+              id: `tweet-${Date.now()}-${index}`,
+              content: line,
+              imagePrompt: `Image related to ${topic}`,
+              imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
+            }));
+          }
         }
       }
       
-      console.log("Final tweets array:", tweets);
-      
+      // If we still couldn't extract tweets, create default ones
       if (tweets.length === 0) {
-        throw new Error("No tweets were generated");
+        toast.error("Couldn't parse tweets from Claude response");
+        return [];
       }
       
-      // Add proper IDs and image URLs
-      return tweets.map((tweet: Tweet, index: number) => ({
-        id: `tweet-${Date.now()}-${index}`,
-        content: tweet.content || "No content provided",
-        imagePrompt: tweet.imagePrompt || `Image related to ${topic}`,
-        imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
-      }));
-    } catch (e) {
-      console.error("Error parsing Claude response:", e);
-      toast.error(e instanceof Error ? e.message : "Error parsing the generated tweets");
+      toast.success(`Generated ${tweets.length} tweets`);
+      return tweets;
+    } catch (fetchError) {
+      console.error("Fetch error:", fetchError);
+      toast.error(`Network error: ${fetchError.message || "Failed to connect to Claude API"}`);
       return [];
     }
   } catch (error) {
