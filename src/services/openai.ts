@@ -1,4 +1,3 @@
-
 // AI services for generating tweets and managing Twitter integration
 import { toast } from "sonner";
 
@@ -70,15 +69,61 @@ const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
       .slice(0, 3);
   }
   
+  // Generate more descriptive image prompts for each tweet
+  const generateImagePrompt = (tweetContent: string, topic: string): string => {
+    // Extract hashtags from the tweet content
+    const hashtags = tweetContent.match(/#\w+/g) || [];
+    const hashtagText = hashtags.join(" ");
+    
+    // Create a more descriptive image prompt
+    let imagePrompt = `High quality professional photo related to ${topic}`;
+    
+    if (hashtagText) {
+      imagePrompt += ` and ${hashtagText}`;
+    }
+    
+    // Add some context based on the content
+    if (tweetContent.toLowerCase().includes("startup")) {
+      imagePrompt += ", showing a modern office with diverse team collaborating";
+    } else if (tweetContent.toLowerCase().includes("tech") || tweetContent.toLowerCase().includes("technology")) {
+      imagePrompt += ", showing futuristic technology devices on clean workspace";
+    } else if (tweetContent.toLowerCase().includes("ai") || tweetContent.toLowerCase().includes("machine learning")) {
+      imagePrompt += ", showing data visualization or AI concept with clean modern aesthetic";
+    }
+    
+    return imagePrompt;
+  };
+  
+  // Generate pseudo-random but deterministic image URLs based on content
+  const generateImageUrl = (tweetContent: string, topic: string): string => {
+    // List of relevant stock photo categories
+    const categories = [
+      "business", "technology", "office", "startup", 
+      "coding", "computer", "artificial-intelligence", "data"
+    ];
+    
+    // Generate a deterministic index based on tweet content
+    const contentHash = tweetContent.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const categoryIndex = contentHash % categories.length;
+    const imageIndex = (contentHash * 13) % 1000; // Multiply by prime for better distribution
+    
+    return `https://source.unsplash.com/featured/?${categories[categoryIndex]},${topic.replace("#", "")}&${imageIndex}`;
+  };
+  
   // Create tweet objects from the extracted content
   return extractedTweets
     .filter(tweet => tweet.length > 0)
-    .map((tweetContent, index) => ({
-      id: `tweet-${Date.now()}-${index}`,
-      content: tweetContent,
-      imagePrompt: `Image related to ${topic}`,
-      imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
-    }));
+    .map((tweetContent, index) => {
+      const imagePrompt = generateImagePrompt(tweetContent, topic);
+      const imageUrl = generateImageUrl(tweetContent, topic);
+      
+      return {
+        id: `tweet-${Date.now()}-${index}`,
+        content: tweetContent,
+        imagePrompt: imagePrompt,
+        imageUrl: imageUrl
+      };
+    });
 };
 
 // Generate tweets using DeepSeek API
@@ -98,7 +143,7 @@ const generateTweetsWithDeepSeek = async (
     const messages: Message[] = [
       {
         role: "system",
-        content: "You are a professional tweet writer. Generate exactly 3 engaging tweets about the topic provided. Use your own words and insights, not just links or forwards. Each tweet should feel personal and authentic."
+        content: "You are a professional tweet writer. Generate exactly 3 engaging tweets about the topic provided. Use your own words and insights, not just links or forwards. Each tweet should feel personal and authentic. Include relevant hashtags naturally within the tweet content."
       },
       {
         role: "user",
@@ -245,6 +290,9 @@ const postScheduledTweet = (tweet: any) => {
   
   // Show success toast
   toast.success(`Tweet posted successfully: "${tweet.content.substring(0, 30)}..."`);
+  
+  // Update analytics after posting
+  updateAnalytics();
 };
 
 export const connectToTwitter = async (): Promise<boolean> => {

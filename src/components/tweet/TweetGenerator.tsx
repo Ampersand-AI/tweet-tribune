@@ -55,7 +55,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
       const tweets = await generateTweets({
         topic: selectedTopic.title,
         tone: selectedTone,
-        customInstructions,
+        customInstructions: customInstructions + " Include specific examples and personal opinions. Make it sound like I'm sharing my own experience.",
         apiProvider: selectedApiProvider
       });
       setGeneratedTweets(tweets);
@@ -77,6 +77,22 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
         return [...prev, tweetId];
       }
     });
+  };
+
+  const handleEditTweet = (tweetId: string, newContent: string) => {
+    const updatedTweets = generatedTweets.map(tweet => {
+      if (tweet.id === tweetId) {
+        return { ...tweet, content: newContent };
+      }
+      return tweet;
+    });
+    
+    setGeneratedTweets(updatedTweets);
+    
+    // Update the tweets in localStorage/shared state
+    localStorage.setItem("generated-tweets", JSON.stringify(updatedTweets));
+    // Also send updated tweets to Schedule page
+    sendGeneratedTweetsToSchedule(updatedTweets);
   };
 
   useEffect(() => {
@@ -228,6 +244,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                 tweet={tweet} 
                 isSelected={selectedTweets.includes(tweet.id)}
                 onSelect={() => handleTweetSelect(tweet.id)}
+                onEdit={handleEditTweet}
               />
             ))}
           </div>

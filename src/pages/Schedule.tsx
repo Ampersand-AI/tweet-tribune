@@ -2,12 +2,13 @@
 import MainLayout from "@/components/layout/MainLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Clock, Trash2, PenSquare, Check, X } from "lucide-react";
+import { CalendarIcon, Clock, Trash2, PenSquare, Check, X, Send } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cancelScheduledTweet, checkAndPostScheduledTweets, getScheduledTweets, generateTweets, scheduleTweet } from "@/services/openai";
+import { cancelScheduledTweet, checkAndPostScheduledTweets, getScheduledTweets, generateTweets, scheduleTweet, postTweet } from "@/services/openai";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 const Schedule = () => {
   const [scheduledTweets, setScheduledTweets] = useState<any[]>([]);
@@ -15,6 +16,8 @@ const Schedule = () => {
   const [pendingTweets, setPendingTweets] = useState<any[]>([]);
   const [approvedTweets, setApprovedTweets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [editingTweetId, setEditingTweetId] = useState<string | null>(null);
+  const [editedContent, setEditedContent] = useState("");
 
   useEffect(() => {
     // Load scheduled tweets
@@ -63,6 +66,59 @@ const Schedule = () => {
     }
   };
 
+  const handleEditTweet = (tweet: any) => {
+    setEditingTweetId(tweet.id);
+    setEditedContent(tweet.content);
+  };
+
+  const handleSaveEdit = (tweetId: string) => {
+    // Find which array contains the tweet
+    let updatedTweet;
+    
+    // Check in pending tweets
+    const updatedPending = pendingTweets.map(tweet => {
+      if (tweet.id === tweetId) {
+        updatedTweet = { ...tweet, content: editedContent };
+        return updatedTweet;
+      }
+      return tweet;
+    });
+    
+    // Check in approved tweets
+    const updatedApproved = approvedTweets.map(tweet => {
+      if (tweet.id === tweetId) {
+        updatedTweet = { ...tweet, content: editedContent };
+        return updatedTweet;
+      }
+      return tweet;
+    });
+    
+    // Check in scheduled tweets
+    const updatedScheduled = scheduledTweets.map(tweet => {
+      if (tweet.id === tweetId) {
+        updatedTweet = { ...tweet, content: editedContent };
+        return updatedTweet;
+      }
+      return tweet;
+    });
+    
+    // Update the appropriate state
+    setPendingTweets(updatedPending);
+    setApprovedTweets(updatedApproved);
+    
+    // If it's a scheduled tweet, update in localStorage
+    if (scheduledTweets.some(tweet => tweet.id === tweetId)) {
+      localStorage.setItem("scheduled-tweets", JSON.stringify(updatedScheduled));
+      setScheduledTweets(updatedScheduled);
+    }
+    
+    // Reset editing state
+    setEditingTweetId(null);
+    setEditedContent("");
+    
+    toast.success("Tweet updated successfully");
+  };
+
   const handleGenerateTweets = async () => {
     setIsLoading(true);
     try {
@@ -72,6 +128,7 @@ const Schedule = () => {
       const tweets = await generateTweets({
         topic: randomTopic,
         tone: "professional",
+        customInstructions: "Include specific examples and personal experiences. Make it sound like I'm sharing my own thoughts.",
         apiProvider: "deepseek"
       });
       
@@ -91,16 +148,41 @@ const Schedule = () => {
     setApprovedTweets([...approvedTweets, tweet]);
     
     // Remove from pending tweets
-    setPendingTweets(pendingTweets.filter(t => t.content !== tweet.content));
+    setPendingTweets(pendingTweets.filter(t => t.id !== tweet.id));
     
     toast.success("Tweet approved and ready for scheduling");
   };
 
   const handleRejectTweet = (tweet: any) => {
     // Remove from pending tweets
-    setPendingTweets(pendingTweets.filter(t => t.content !== tweet.content));
+    setPendingTweets(pendingTweets.filter(t => t.id !== tweet.id));
     
     toast.info("Tweet removed from queue");
+  };
+
+  const handlePostNow = async (tweet: any) => {
+    try {
+      // Post the tweet immediately
+      const success = await postTweet(tweet.content);
+      
+      if (success) {
+        // If it was in approved tweets, remove it
+        if (approvedTweets.some(t => t.id === tweet.id)) {
+          setApprovedTweets(approvedTweets.filter(t => t.id !== tweet.id));
+        }
+        
+        // If it was in scheduled tweets, cancel it
+        if (scheduledTweets.some(t => t.id === tweet.id)) {
+          cancelScheduledTweet(tweet.id);
+          setScheduledTweets(getScheduledTweets());
+        }
+        
+        toast.success("Tweet posted successfully!");
+      }
+    } catch (error) {
+      console.error("Error posting tweet:", error);
+      toast.error("Failed to post tweet");
+    }
   };
 
   const handleScheduleAllTweets = () => {
@@ -178,24 +260,62 @@ const Schedule = () => {
                             )}
                           </div>
                           <div className="w-full sm:w-3/4 flex flex-col justify-between">
-                            <p className="text-sm mb-4">{tweet.content}</p>
+                            {editingTweetId === tweet.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editedContent}
+                                  onChange={(e) => setEditedContent(e.target.value)}
+                                  className="min-h-[100px] text-sm"
+                                  maxLength={280}
+                                />
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleSaveEdit(tweet.id)}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => setEditingTweetId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm mb-4">{tweet.content}</p>
+                            )}
                             <div className="flex gap-2 mt-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleApproveTweet(tweet)}
-                                className="bg-green-500 hover:bg-green-600"
-                              >
-                                <Check className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="destructive" 
-                                onClick={() => handleRejectTweet(tweet)}
-                              >
-                                <X className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
+                              {editingTweetId !== tweet.id && (
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditTweet(tweet)}
+                                  >
+                                    <PenSquare className="h-4 w-4 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleApproveTweet(tweet)}
+                                    className="bg-green-500 hover:bg-green-600"
+                                  >
+                                    <Check className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={() => handleRejectTweet(tweet)}
+                                  >
+                                    <X className="h-4 w-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -246,8 +366,64 @@ const Schedule = () => {
                               />
                             )}
                           </div>
-                          <div className="w-full sm:w-3/4">
-                            <p className="text-sm">{tweet.content}</p>
+                          <div className="w-full sm:w-3/4 flex flex-col justify-between">
+                            {editingTweetId === tweet.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editedContent}
+                                  onChange={(e) => setEditedContent(e.target.value)}
+                                  className="min-h-[100px] text-sm"
+                                  maxLength={280}
+                                />
+                                <div className="flex gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleSaveEdit(tweet.id)}
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    onClick={() => setEditingTweetId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm">{tweet.content}</p>
+                            )}
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {editingTweetId !== tweet.id && (
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditTweet(tweet)}
+                                  >
+                                    <PenSquare className="h-4 w-4 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handlePostNow(tweet)}
+                                    className="bg-blue-500 hover:bg-blue-600"
+                                  >
+                                    <Send className="h-4 w-4 mr-1" />
+                                    Post Now
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={() => handleRejectTweet(tweet)}
+                                  >
+                                    <X className="h-4 w-4 mr-1" />
+                                    Remove
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -314,7 +490,33 @@ const Schedule = () => {
                           </div>
                           <div className="w-full sm:w-3/4 flex flex-col justify-between">
                             <div>
-                              <p className="text-sm mb-2">{tweet.content}</p>
+                              {editingTweetId === tweet.id ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={editedContent}
+                                    onChange={(e) => setEditedContent(e.target.value)}
+                                    className="min-h-[100px] text-sm"
+                                    maxLength={280}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button 
+                                      size="sm" 
+                                      onClick={() => handleSaveEdit(tweet.id)}
+                                    >
+                                      Save
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      onClick={() => setEditingTweetId(null)}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-sm mb-2">{tweet.content}</p>
+                              )}
                               <div className="flex items-center text-xs text-muted-foreground">
                                 <CalendarIcon className="h-3 w-3 mr-1" />
                                 <span>
@@ -334,19 +536,31 @@ const Schedule = () => {
                                 </span>
                               </div>
                             </div>
-                            <div className="flex gap-2 mt-4">
-                              <Button size="sm" variant="outline">
-                                <PenSquare className="h-4 w-4 mr-1" />
-                                Edit
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="destructive" 
-                                onClick={() => handleCancelTweet(tweet.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
+                            <div className="flex flex-wrap gap-2 mt-4">
+                              {editingTweetId !== tweet.id && (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => handleEditTweet(tweet)}>
+                                    <PenSquare className="h-4 w-4 mr-1" />
+                                    Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => handlePostNow(tweet)}
+                                    className="bg-blue-500 hover:bg-blue-600"
+                                  >
+                                    <Send className="h-4 w-4 mr-1" />
+                                    Post Now
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={() => handleCancelTweet(tweet.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
