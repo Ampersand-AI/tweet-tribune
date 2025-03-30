@@ -10,12 +10,13 @@ export function usePostToast() {
   const showPostConfirmation = (
     content: string, 
     platform: "twitter" | "linkedin", 
-    screenshotUrl: string
+    screenshotUrl: string,
+    postUrl?: string
   ) => {
-    // Generate platform-specific post URL
-    const postUrl = platform === "twitter" 
+    // Generate platform-specific post URL if not provided
+    const finalPostUrl = postUrl || (platform === "twitter" 
       ? `https://twitter.com/home` 
-      : `https://linkedin.com/feed/`;
+      : `https://linkedin.com/feed/`);
     
     // First toast - immediate confirmation
     sonnerToast(
@@ -24,7 +25,7 @@ export function usePostToast() {
         description: content.substring(0, 60) + "...",
         action: {
           label: "View",
-          onClick: () => window.open(postUrl),
+          onClick: () => window.open(finalPostUrl),
         },
         icon: platform === "twitter" ? "🐦" : "🔗",
         duration: 5000,
@@ -42,7 +43,7 @@ export function usePostToast() {
           }),
           action: {
             label: "View Post",
-            onClick: () => window.open(postUrl),
+            onClick: () => window.open(finalPostUrl),
           },
           duration: 8000,
         }
