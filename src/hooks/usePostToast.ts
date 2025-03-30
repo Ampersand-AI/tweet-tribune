@@ -12,6 +12,11 @@ export function usePostToast() {
     platform: "twitter" | "linkedin", 
     screenshotUrl: string
   ) => {
+    // Generate platform-specific post URL
+    const postUrl = platform === "twitter" 
+      ? `https://twitter.com/home` 
+      : `https://linkedin.com/feed/`;
+    
     // First toast - immediate confirmation
     sonnerToast(
       `${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`,
@@ -19,7 +24,7 @@ export function usePostToast() {
         description: content.substring(0, 60) + "...",
         action: {
           label: "View",
-          onClick: () => window.open(platform === "twitter" ? "https://twitter.com" : "https://linkedin.com"),
+          onClick: () => window.open(postUrl),
         },
         icon: platform === "twitter" ? "🐦" : "🔗",
         duration: 5000,
@@ -35,6 +40,10 @@ export function usePostToast() {
             imageUrl: screenshotUrl, 
             platform: platform 
           }),
+          action: {
+            label: "View Post",
+            onClick: () => window.open(postUrl),
+          },
           duration: 8000,
         }
       );

@@ -275,6 +275,11 @@ export const checkAndPostScheduledTweets = () => {
 const postScheduledTweet = (tweet: any) => {
   console.log("Posting scheduled tweet:", tweet);
   
+  // Generate a post URL
+  const contentHash = tweet.content.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+  const platform = tweet.platform || "twitter";
+  const postUrl = generatePostUrl(platform, contentHash);
+  
   // Update tweet history
   const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");
   
@@ -284,7 +289,8 @@ const postScheduledTweet = (tweet: any) => {
       return {
         ...historyTweet,
         postedAt: new Date().toISOString(),
-        status: "posted"
+        status: "posted",
+        postUrl: postUrl
       };
     }
     return historyTweet;
@@ -295,15 +301,25 @@ const postScheduledTweet = (tweet: any) => {
     updatedHistory.push({
       ...tweet,
       postedAt: new Date().toISOString(),
-      status: "posted"
+      status: "posted",
+      postUrl: postUrl
     });
   }
   
   localStorage.setItem("tweet-history", JSON.stringify(updatedHistory));
   
-  // Show success toast
-  const platform = tweet.platform || "twitter";
-  toast.success(`${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully: "${tweet.content.substring(0, 30)}..."`);
+  // Show success toast with link
+  toast.success(
+    `${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`, 
+    {
+      description: tweet.content.substring(0, 60) + "...",
+      action: {
+        label: "View",
+        onClick: () => window.open(postUrl),
+      },
+      duration: 5000,
+    }
+  );
   
   // Update analytics after posting
   updateAnalytics();
@@ -373,6 +389,16 @@ const generateScreenshotUrl = (platform: "twitter" | "linkedin", content: string
   }
 };
 
+// Generate a fake post URL for demo purposes
+const generatePostUrl = (platform: "twitter" | "linkedin", contentHash: number): string => {
+  const postId = `${Date.now()}-${contentHash}`.substring(0, 15);
+  if (platform === "twitter") {
+    return `https://twitter.com/user/status/${postId}`;
+  } else {
+    return `https://linkedin.com/feed/update/${postId}`;
+  }
+};
+
 export const postTweet = async (tweetContent: string, imageUrl?: string, platform: "twitter" | "linkedin" = "twitter"): Promise<boolean> => {
   if (platform === "twitter" && !isTwitterConnected()) {
     toast.error("Please connect to Twitter first");
@@ -385,8 +411,10 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
   }
   
   try {
-    // Generate a fake screenshot URL for the post
+    // Generate a fake screenshot URL and post URL for the post
     const screenshotUrl = generateScreenshotUrl(platform, tweetContent);
+    const contentHash = tweetContent.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const postUrl = generatePostUrl(platform, contentHash);
     
     // For now, we'll just simulate a successful post with a confirmation toast that includes the screenshot
     toast(
@@ -395,16 +423,15 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
         description: tweetContent.substring(0, 60) + "...",
         action: {
           label: "View",
-          onClick: () => window.open(platform === "twitter" ? "https://twitter.com" : "https://linkedin.com"),
+          onClick: () => window.open(postUrl),
         },
         icon: platform === "twitter" ? "🐦" : "🔗",
         duration: 5000,
       }
     );
     
-    // Show a separate toast with the screenshot using shadcn toast
+    // Show a separate toast with the screenshot
     setTimeout(() => {
-      // For regular toast
       toast(
         `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`, 
         {
@@ -412,20 +439,13 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
             imageUrl: screenshotUrl, 
             platform: platform 
           }),
+          action: {
+            label: "View Post",
+            onClick: () => window.open(postUrl),
+          },
           duration: 8000,
         }
       );
-      
-      // For shadcn toast
-      const { toast: shadcnToast } = useToast();
-      shadcnToast({
-        title: `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`,
-        description: React.createElement(ToastImageContent, { 
-          imageUrl: screenshotUrl, 
-          platform: platform 
-        }),
-        duration: 8000,
-      });
     }, 1000);
     
     // Save to post history
@@ -437,7 +457,8 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
       postedAt: new Date().toISOString(),
       status: "posted",
       platform: platform,
-      screenshotUrl: screenshotUrl
+      screenshotUrl: screenshotUrl,
+      postUrl: postUrl
     });
     localStorage.setItem("tweet-history", JSON.stringify(history));
     
