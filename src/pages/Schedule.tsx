@@ -161,7 +161,21 @@ const Schedule = () => {
                     <p className="text-muted-foreground">
                       No scheduled tweets yet. Generate some tweets and schedule them for later.
                     </p>
-                    <Button className="mt-4" onClick={() => document.querySelector('[data-value="generate"]')?.click()}>
+                    <Button 
+                      className="mt-4" 
+                      onClick={() => {
+                        // Get the "generate" tab element and switch to it
+                        const generateTab = document.querySelector('[data-value="generate"]');
+                        if (generateTab) {
+                          // Use dispatchEvent to trigger a click event instead of directly using click()
+                          generateTab.dispatchEvent(new MouseEvent('click', {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window
+                          }));
+                        }
+                      }}
+                    >
                       Generate Tweets
                     </Button>
                   </div>

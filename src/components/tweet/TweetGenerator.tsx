@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -66,19 +65,13 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     
     if (savedDeepseekKey) {
       setDeepseekApiKey(savedDeepseekKey);
+      setShowApiSuccess(true);
+      setTimeout(() => setShowApiSuccess(false), 5000);
     }
     
-    // Auto-select the first available API
-    if (savedClaudeKey) {
-      setSelectedApiProvider("claude");
-      setActiveApiTab("claude");
-    } else if (savedGeminiKey) {
-      setSelectedApiProvider("gemini");
-      setActiveApiTab("gemini");
-    } else if (savedDeepseekKey) {
-      setSelectedApiProvider("deepseek");
-      setActiveApiTab("deepseek");
-    }
+    // Auto-select deepseek API
+    setSelectedApiProvider("deepseek");
+    setActiveApiTab("deepseek");
     
     // Check Twitter connection status
     const isConnected = isTwitterConnected();
