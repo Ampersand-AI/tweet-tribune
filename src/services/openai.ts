@@ -1,9 +1,9 @@
 
-// Claude AI service for generating tweets and images
+// AI services for generating tweets and managing Twitter integration
 import { toast } from "sonner";
 
-interface ClaudeMessage {
-  role: "user" | "assistant";
+interface Message {
+  role: "user" | "assistant" | "system";
   content: string;
 }
 
@@ -11,6 +11,7 @@ interface TweetGenerationProps {
   topic: string;
   tone: string;
   customInstructions?: string;
+  apiProvider?: "claude" | "gemini" | "deepseek";
 }
 
 interface Tweet {
@@ -23,20 +24,78 @@ interface Tweet {
   status?: string;
 }
 
-export const generateTweets = async ({
-  topic,
-  tone,
-  customInstructions = "",
-}: TweetGenerationProps): Promise<Tweet[]> => {
+// Helper function to extract tweets from text content
+const extractTweetsFromText = (content: string, topic: string): Tweet[] => {
+  console.log("Extracting tweets from text:", content);
+  
+  // Method 1: Try to extract using regex for numbered list format
+  const tweetRegex = /(\d+\.\s*|"content":|•\s*)(.*?)(?=\n\d+\.|$|\n•|\n"content":)/gs;
+  const matches = Array.from(content.matchAll(tweetRegex));
+  
+  let extractedTweets = matches
+    .map(match => match[2].trim())
+    .filter(tweet => tweet.length > 0 && tweet.length <= 280);
+  
+  // Method 2: Try to parse as JSON if regex didn't work
+  if (extractedTweets.length === 0) {
+    try {
+      // Look for JSON-like content in the response
+      const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s) || 
+                        content.match(/\{\s*"tweets"\s*:\s*\[.*\]\s*\}/s);
+      
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[0];
+        const parsedJson = JSON.parse(jsonStr);
+        
+        if (Array.isArray(parsedJson)) {
+          extractedTweets = parsedJson.map(tweet => 
+            typeof tweet === 'string' ? tweet : tweet.content || tweet.text || ""
+          );
+        } else if (parsedJson.tweets && Array.isArray(parsedJson.tweets)) {
+          extractedTweets = parsedJson.tweets.map(tweet => 
+            typeof tweet === 'string' ? tweet : tweet.content || tweet.text || ""
+          );
+        }
+      }
+    } catch (jsonError) {
+      console.error("Error parsing JSON:", jsonError);
+    }
+  }
+  
+  // Method 3: If methods 1 and 2 failed, split by newlines and filter
+  if (extractedTweets.length === 0) {
+    extractedTweets = content
+      .split("\n")
+      .filter(line => line.trim().length > 0 && line.trim().length <= 280 && !line.startsWith("{") && !line.startsWith("["))
+      .slice(0, 3);
+  }
+  
+  // Create tweet objects from the extracted content
+  return extractedTweets
+    .filter(tweet => tweet.length > 0)
+    .map((tweetContent, index) => ({
+      id: `tweet-${Date.now()}-${index}`,
+      content: tweetContent,
+      imagePrompt: `Image related to ${topic}`,
+      imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
+    }));
+};
+
+// Generate tweets using Claude API
+const generateTweetsWithClaude = async (
+  topic: string,
+  tone: string,
+  customInstructions: string = ""
+): Promise<Tweet[]> => {
   try {
-    const apiKey = localStorage.getItem("openai-api-key"); // Using the same localStorage key
+    const apiKey = localStorage.getItem("openai-api-key");
     
     if (!apiKey) {
       toast.error("Claude API key is required");
       return [];
     }
 
-    const messages: ClaudeMessage[] = [
+    const messages: Message[] = [
       {
         role: "user",
         content: `Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
@@ -83,90 +142,214 @@ export const generateTweets = async ({
       
       console.log("Raw content from Claude:", content);
       
-      // Parse the tweets from the content
-      // Since Claude may not return strictly formatted JSON, we'll extract the tweets manually
-      const tweetRegex = /(\d+\.\s*|"content":|•\s*)(.*?)(?=\n\d+\.|$|\n•|\n"content":)/gs;
-      const matches = Array.from(content.matchAll(tweetRegex));
+      // Extract tweets from the content
+      const tweets = extractTweetsFromText(content, topic);
       
-      const extractedTweets = matches
-        .map(match => match[2].trim())
-        .filter(tweet => tweet.length > 0 && tweet.length <= 280);
-      
-      // If we couldn't extract tweets using regex, try parsing as JSON
-      let tweets: Tweet[] = [];
-      
-      if (extractedTweets.length > 0) {
-        tweets = extractedTweets.map((tweetContent, index) => ({
-          id: `tweet-${Date.now()}-${index}`,
-          content: tweetContent,
-          imagePrompt: `Image related to ${topic}`,
-          imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
-        }));
-      } else {
-        // Try to parse JSON
-        try {
-          // Look for JSON-like content in Claude's response
-          const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s) || 
-                            content.match(/\{\s*"tweets"\s*:\s*\[.*\]\s*\}/s);
-          
-          if (jsonMatch) {
-            const jsonStr = jsonMatch[0];
-            const parsedJson = JSON.parse(jsonStr);
-            
-            if (Array.isArray(parsedJson)) {
-              // If it's a direct array of tweets
-              tweets = parsedJson.map((tweet, index) => ({
-                id: `tweet-${Date.now()}-${index}`,
-                content: tweet.content || tweet.text || "No content provided",
-                imagePrompt: tweet.imagePrompt || `Image related to ${topic}`,
-                imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
-              }));
-            } else if (parsedJson.tweets && Array.isArray(parsedJson.tweets)) {
-              // If it's an object with a "tweets" array
-              tweets = parsedJson.tweets.map((tweet, index) => ({
-                id: `tweet-${Date.now()}-${index}`,
-                content: tweet.content || tweet.text || "No content provided",
-                imagePrompt: tweet.imagePrompt || `Image related to ${topic}`,
-                imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
-              }));
-            }
-          }
-        } catch (jsonError) {
-          console.error("Error parsing JSON:", jsonError);
-          // If JSON parsing failed, manually create tweets from the content
-          const lines = content
-            .split("\n")
-            .filter(line => line.trim().length > 0 && line.trim().length <= 280)
-            .slice(0, 3);
-          
-          if (lines.length > 0) {
-            tweets = lines.map((line, index) => ({
-              id: `tweet-${Date.now()}-${index}`,
-              content: line,
-              imagePrompt: `Image related to ${topic}`,
-              imageUrl: `https://placehold.co/600x400/png?text=${encodeURIComponent(topic.substring(0, 20))}`
-            }));
-          }
-        }
-      }
-      
-      // If we still couldn't extract tweets, create default ones
       if (tweets.length === 0) {
         toast.error("Couldn't parse tweets from Claude response");
         return [];
       }
       
-      toast.success(`Generated ${tweets.length} tweets`);
+      toast.success(`Generated ${tweets.length} tweets with Claude`);
       return tweets;
-    } catch (fetchError) {
+    } catch (fetchError: any) {
       console.error("Fetch error:", fetchError);
       toast.error(`Network error: ${fetchError.message || "Failed to connect to Claude API"}`);
       return [];
     }
-  } catch (error) {
-    console.error("Error generating tweets:", error);
+  } catch (error: any) {
+    console.error("Error generating tweets with Claude:", error);
     toast.error(error instanceof Error ? error.message : "Failed to generate tweets");
     return [];
+  }
+};
+
+// Generate tweets using Gemini API
+const generateTweetsWithGemini = async (
+  topic: string,
+  tone: string,
+  customInstructions: string = ""
+): Promise<Tweet[]> => {
+  try {
+    const apiKey = localStorage.getItem("gemini-api-key");
+    
+    if (!apiKey) {
+      toast.error("Gemini API key is required");
+      return [];
+    }
+
+    console.log("Sending request to Gemini API");
+
+    try {
+      const prompt = `Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
+        Each tweet should be under 280 characters and include relevant hashtags.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1000,
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
+        console.error("Gemini API error:", errorData);
+        toast.error(`API Error: ${errorData.error?.message || "Failed to generate tweets"}`);
+        return [];
+      }
+
+      const data = await response.json();
+      console.log("Gemini API response:", data);
+      
+      // Extract content from Gemini's response
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!content) {
+        toast.error("Empty response from Gemini API");
+        return [];
+      }
+      
+      console.log("Raw content from Gemini:", content);
+      
+      // Extract tweets from the content
+      const tweets = extractTweetsFromText(content, topic);
+      
+      if (tweets.length === 0) {
+        toast.error("Couldn't parse tweets from Gemini response");
+        return [];
+      }
+      
+      toast.success(`Generated ${tweets.length} tweets with Gemini`);
+      return tweets;
+    } catch (fetchError: any) {
+      console.error("Fetch error:", fetchError);
+      toast.error(`Network error: ${fetchError.message || "Failed to connect to Gemini API"}`);
+      return [];
+    }
+  } catch (error: any) {
+    console.error("Error generating tweets with Gemini:", error);
+    toast.error(error instanceof Error ? error.message : "Failed to generate tweets");
+    return [];
+  }
+};
+
+// Generate tweets using DeepSeek API
+const generateTweetsWithDeepSeek = async (
+  topic: string,
+  tone: string,
+  customInstructions: string = ""
+): Promise<Tweet[]> => {
+  try {
+    const apiKey = localStorage.getItem("deepseek-api-key");
+    
+    if (!apiKey) {
+      toast.error("DeepSeek API key is required");
+      return [];
+    }
+
+    const messages: Message[] = [
+      {
+        role: "system",
+        content: "You are a professional tweet writer. Generate exactly 3 engaging tweets about the topic provided."
+      },
+      {
+        role: "user",
+        content: `Generate 3 unique, engaging ${tone} tweets about "${topic}". ${customInstructions}
+        Each tweet should be under 280 characters and include relevant hashtags.`
+      }
+    ];
+
+    console.log("Sending request to DeepSeek API with messages:", messages);
+
+    try {
+      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages,
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
+        console.error("DeepSeek API error:", errorData);
+        toast.error(`API Error: ${errorData.error?.message || "Failed to generate tweets"}`);
+        return [];
+      }
+
+      const data = await response.json();
+      console.log("DeepSeek API response:", data);
+      
+      // Extract content from DeepSeek's response
+      const content = data.choices?.[0]?.message?.content;
+      
+      if (!content) {
+        toast.error("Empty response from DeepSeek API");
+        return [];
+      }
+      
+      console.log("Raw content from DeepSeek:", content);
+      
+      // Extract tweets from the content
+      const tweets = extractTweetsFromText(content, topic);
+      
+      if (tweets.length === 0) {
+        toast.error("Couldn't parse tweets from DeepSeek response");
+        return [];
+      }
+      
+      toast.success(`Generated ${tweets.length} tweets with DeepSeek`);
+      return tweets;
+    } catch (fetchError: any) {
+      console.error("Fetch error:", fetchError);
+      toast.error(`Network error: ${fetchError.message || "Failed to connect to DeepSeek API"}`);
+      return [];
+    }
+  } catch (error: any) {
+    console.error("Error generating tweets with DeepSeek:", error);
+    toast.error(error instanceof Error ? error.message : "Failed to generate tweets");
+    return [];
+  }
+};
+
+// Main function to generate tweets using the selected API provider
+export const generateTweets = async ({
+  topic,
+  tone,
+  customInstructions = "",
+  apiProvider = "claude"
+}: TweetGenerationProps): Promise<Tweet[]> => {
+  console.log(`Generating tweets using ${apiProvider} API`);
+  
+  switch (apiProvider) {
+    case "gemini":
+      return generateTweetsWithGemini(topic, tone, customInstructions);
+    case "deepseek":
+      return generateTweetsWithDeepSeek(topic, tone, customInstructions);
+    case "claude":
+    default:
+      return generateTweetsWithClaude(topic, tone, customInstructions);
   }
 };
 

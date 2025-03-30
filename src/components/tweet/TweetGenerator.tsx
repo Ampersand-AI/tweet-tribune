@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +35,9 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [generatedTweets, setGeneratedTweets] = useState<any[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [deepseekApiKey, setDeepseekApiKey] = useState("");
+  const [selectedApiProvider, setSelectedApiProvider] = useState<"claude" | "gemini" | "deepseek">("claude");
   const [toneSelection, setToneSelection] = useState("professional");
   const [customPrompt, setCustomPrompt] = useState("");
   const [selectedTweet, setSelectedTweet] = useState<any>(null);
@@ -42,14 +46,38 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [showApiSuccess, setShowApiSuccess] = useState(false);
+  const [activeApiTab, setActiveApiTab] = useState<"claude" | "gemini" | "deepseek">("claude");
 
-  // Load OpenAI API key from localStorage on component mount
+  // Load API keys from localStorage on component mount
   useEffect(() => {
-    const savedKey = localStorage.getItem("openai-api-key");
-    if (savedKey) {
-      setOpenaiApiKey(savedKey);
+    const savedClaudeKey = localStorage.getItem("openai-api-key");
+    const savedGeminiKey = localStorage.getItem("gemini-api-key");
+    const savedDeepseekKey = localStorage.getItem("deepseek-api-key");
+    
+    if (savedClaudeKey) {
+      setOpenaiApiKey(savedClaudeKey);
       setShowApiSuccess(true);
       setTimeout(() => setShowApiSuccess(false), 5000);
+    }
+    
+    if (savedGeminiKey) {
+      setGeminiApiKey(savedGeminiKey);
+    }
+    
+    if (savedDeepseekKey) {
+      setDeepseekApiKey(savedDeepseekKey);
+    }
+    
+    // Auto-select the first available API
+    if (savedClaudeKey) {
+      setSelectedApiProvider("claude");
+      setActiveApiTab("claude");
+    } else if (savedGeminiKey) {
+      setSelectedApiProvider("gemini");
+      setActiveApiTab("gemini");
+    } else if (savedDeepseekKey) {
+      setSelectedApiProvider("deepseek");
+      setActiveApiTab("deepseek");
     }
     
     // Check Twitter connection status
@@ -58,8 +86,18 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   }, []);
 
   const handleGenerate = async () => {
-    if (!openaiApiKey) {
-      toast.error("Please provide your Claude API key in the settings");
+    // Check if the selected API provider has a key
+    let apiKey = "";
+    if (selectedApiProvider === "claude") {
+      apiKey = openaiApiKey;
+    } else if (selectedApiProvider === "gemini") {
+      apiKey = geminiApiKey;
+    } else if (selectedApiProvider === "deepseek") {
+      apiKey = deepseekApiKey;
+    }
+
+    if (!apiKey) {
+      toast.error(`Please provide your ${selectedApiProvider} API key in the settings`);
       return;
     }
 
@@ -75,29 +113,52 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
       const tweets = await generateTweets({
         topic: selectedTopic.title,
         tone: toneSelection,
-        customInstructions: customPrompt
+        customInstructions: customPrompt,
+        apiProvider: selectedApiProvider
       });
       
       setGeneratedTweets(tweets);
       
       if (tweets.length > 0) {
-        toast.success("Tweets generated successfully");
+        toast.success(`Tweets generated successfully with ${selectedApiProvider}`);
       } else {
-        toast.error("No tweets were generated");
+        toast.error(`No tweets were generated with ${selectedApiProvider}`);
       }
     } catch (error) {
-      console.error("Error generating tweets:", error);
-      toast.error("Failed to generate tweets");
+      console.error(`Error generating tweets with ${selectedApiProvider}:`, error);
+      toast.error(`Failed to generate tweets with ${selectedApiProvider}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleApiKeySubmit = (key: string) => {
+  const handleClaudeApiKeySubmit = (key: string) => {
     setOpenaiApiKey(key);
     setShowApiSuccess(true);
     toast.success("Claude API key saved successfully");
     setTimeout(() => setShowApiSuccess(false), 5000);
+    
+    if (!selectedApiProvider) {
+      setSelectedApiProvider("claude");
+    }
+  };
+
+  const handleGeminiApiKeySubmit = (key: string) => {
+    setGeminiApiKey(key);
+    toast.success("Gemini API key saved successfully");
+    
+    if (!selectedApiProvider) {
+      setSelectedApiProvider("gemini");
+    }
+  };
+
+  const handleDeepseekApiKeySubmit = (key: string) => {
+    setDeepseekApiKey(key);
+    toast.success("DeepSeek API key saved successfully");
+    
+    if (!selectedApiProvider) {
+      setSelectedApiProvider("deepseek");
+    }
   };
 
   const handleTweetSelect = (tweet: any) => {
@@ -173,7 +234,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                 <div className="bg-green-100 p-1 rounded-full mr-2">
                   <div className="bg-green-500 h-2 w-2 rounded-full"></div>
                 </div>
-                Claude API key is connected and ready to use
+                API key is connected and ready to use
               </AlertDescription>
             </Alert>
           )}
@@ -189,24 +250,115 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
             </Alert>
           )}
 
-          {!openaiApiKey && (
-            <div className="space-y-4">
-              <p className="text-sm text-amber-600">
-                Claude API Key is required to generate tweets. You can add it below.
-              </p>
-              <ApiKeyForm
-                keyType="openai"
-                label="Claude API Key"
-                placeholder="sk-ant-..."
-                description="Your API key is stored locally and never sent to our servers."
-                onApiKeySubmit={handleApiKeySubmit}
-              />
-            </div>
-          )}
+          <Tabs 
+            defaultValue={activeApiTab} 
+            value={activeApiTab}
+            onValueChange={(value) => {
+              setActiveApiTab(value as "claude" | "gemini" | "deepseek");
+              setSelectedApiProvider(value as "claude" | "gemini" | "deepseek");
+            }}
+            className="w-full mb-6"
+          >
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="claude">Claude API</TabsTrigger>
+              <TabsTrigger value="gemini">Gemini API</TabsTrigger>
+              <TabsTrigger value="deepseek">DeepSeek API</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="claude">
+              {!openaiApiKey ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-amber-600">
+                    Claude API Key is required to generate tweets with Claude.
+                  </p>
+                  <ApiKeyForm
+                    keyType="openai"
+                    label="Claude API Key"
+                    placeholder="sk-ant-..."
+                    description="Your API key is stored locally and never sent to our servers."
+                    onApiKeySubmit={handleClaudeApiKeySubmit}
+                  />
+                </div>
+              ) : (
+                <Alert className="bg-green-50 border-green-200">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-600">
+                    Claude API key is configured and ready to use
+                  </AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="gemini">
+              {!geminiApiKey ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-amber-600">
+                    Gemini API Key is required to generate tweets with Gemini.
+                  </p>
+                  <ApiKeyForm
+                    keyType="gemini"
+                    label="Gemini API Key"
+                    placeholder="AIzaSyC..."
+                    description="Your API key is stored locally and never sent to our servers."
+                    onApiKeySubmit={handleGeminiApiKeySubmit}
+                  />
+                </div>
+              ) : (
+                <Alert className="bg-green-50 border-green-200">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-600">
+                    Gemini API key is configured and ready to use
+                  </AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="deepseek">
+              {!deepseekApiKey ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-amber-600">
+                    DeepSeek API Key is required to generate tweets with DeepSeek.
+                  </p>
+                  <ApiKeyForm
+                    keyType="deepseek"
+                    label="DeepSeek API Key"
+                    placeholder="sk-..."
+                    description="Your API key is stored locally and never sent to our servers."
+                    onApiKeySubmit={handleDeepseekApiKeySubmit}
+                  />
+                </div>
+              ) : (
+                <Alert className="bg-green-50 border-green-200">
+                  <Check className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-600">
+                    DeepSeek API key is configured and ready to use
+                  </AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
+          </Tabs>
 
-          {openaiApiKey && (
+          {/* Show tweet generation options if any API key is available */}
+          {(openaiApiKey || geminiApiKey || deepseekApiKey) && (
             <>
               <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="api-provider">API Provider</Label>
+                  <Select
+                    value={selectedApiProvider}
+                    onValueChange={(value) => setSelectedApiProvider(value as "claude" | "gemini" | "deepseek")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select API provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {openaiApiKey && <SelectItem value="claude">Claude</SelectItem>}
+                      {geminiApiKey && <SelectItem value="gemini">Gemini</SelectItem>}
+                      {deepseekApiKey && <SelectItem value="deepseek">DeepSeek</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="tone">Tone</Label>
                   <Select
@@ -226,7 +378,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                   </Select>
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="custom-prompt">Custom instructions (optional)</Label>
                   <Textarea
                     id="custom-prompt"
@@ -242,7 +394,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                 className="w-full mt-4"
                 disabled={isGenerating}
               >
-                {isGenerating ? "Generating..." : "Generate Tweets"}
+                {isGenerating ? `Generating with ${selectedApiProvider}...` : `Generate Tweets with ${selectedApiProvider}`}
               </Button>
             </>
           )}
@@ -253,7 +405,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
         <Card className="w-full p-8 flex justify-center items-center">
           <div className="text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-            <p className="mt-4 text-muted-foreground">Generating tweets with Claude AI...</p>
+            <p className="mt-4 text-muted-foreground">Generating tweets with {selectedApiProvider}...</p>
           </div>
         </Card>
       )}
@@ -272,7 +424,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                   key={tweet.id}
                   tweet={tweet}
                   isSelected={selectedTweet?.id === tweet.id}
-                  onSelect={() => setSelectedTweet(tweet)}
+                  onSelect={() => handleTweetSelect(tweet)}
                 />
               ))}
             </div>
