@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Edit, Linkedin, Twitter } from "lucide-react";
@@ -87,9 +86,9 @@ const TweetPreview = ({ tweet, isSelected, onSelect, onEdit, onPostNow }: TweetP
                 href={tweet.postUrl}
                 target="_blank"
                 rel="noopener noreferrer" 
-                className="text-xs text-blue-500 hover:underline mt-1 block"
+                className="text-xs text-blue-500 hover:underline mt-1 block truncate"
               >
-                View published post
+                {tweet.postUrl}
               </a>
             )}
           </>

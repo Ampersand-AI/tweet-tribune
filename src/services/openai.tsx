@@ -392,10 +392,14 @@ const generateScreenshotUrl = (platform: "twitter" | "linkedin", content: string
 // Generate a fake post URL for demo purposes
 const generatePostUrl = (platform: "twitter" | "linkedin", contentHash: number): string => {
   const postId = `${Date.now()}-${contentHash}`.substring(0, 15);
+  
+  // Use URLs that actually resolve to valid pages (even if not the actual post)
   if (platform === "twitter") {
-    return `https://twitter.com/user/status/${postId}`;
+    // Twitter is now X, so we'll use x.com which will at least show the Twitter homepage
+    return `https://x.com/intent/tweet?text=${encodeURIComponent(contentHash.toString())}`;
   } else {
-    return `https://linkedin.com/feed/update/${postId}`;
+    // LinkedIn share URL that will at least resolve to LinkedIn
+    return `https://www.linkedin.com/sharing/share-offsite/?url=https://example.com/${postId}`;
   }
 };
 
@@ -416,37 +420,9 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
     const contentHash = tweetContent.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const postUrl = generatePostUrl(platform, contentHash);
     
-    // For now, we'll just simulate a successful post with a confirmation toast that includes the screenshot
-    toast(
-      `${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`,
-      {
-        description: tweetContent.substring(0, 60) + "...",
-        action: {
-          label: "View",
-          onClick: () => window.open(postUrl),
-        },
-        icon: platform === "twitter" ? "🐦" : "🔗",
-        duration: 5000,
-      }
-    );
-    
-    // Show a separate toast with the screenshot
-    setTimeout(() => {
-      toast(
-        `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`, 
-        {
-          description: React.createElement(ToastImageContent, { 
-            imageUrl: screenshotUrl, 
-            platform: platform 
-          }),
-          action: {
-            label: "View Post",
-            onClick: () => window.open(postUrl),
-          },
-          duration: 8000,
-        }
-      );
-    }, 1000);
+    // Import the usePostToast hook and use it to show the confirmation
+    const { showPostConfirmation } = await import('@/hooks/usePostToast');
+    showPostConfirmation(tweetContent, platform, screenshotUrl, postUrl);
     
     // Save to post history
     const history = JSON.parse(localStorage.getItem("tweet-history") || "[]");

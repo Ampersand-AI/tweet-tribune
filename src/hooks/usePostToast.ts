@@ -15,7 +15,7 @@ export function usePostToast() {
   ) => {
     // Generate platform-specific post URL if not provided
     const finalPostUrl = postUrl || (platform === "twitter" 
-      ? `https://twitter.com/home` 
+      ? `https://x.com` 
       : `https://linkedin.com/feed/`);
     
     // First toast - immediate confirmation
@@ -25,7 +25,7 @@ export function usePostToast() {
         description: content.substring(0, 60) + "...",
         action: {
           label: "View",
-          onClick: () => window.open(finalPostUrl),
+          onClick: () => window.open(finalPostUrl, "_blank", "noopener,noreferrer"),
         },
         icon: platform === "twitter" ? "🐦" : "🔗",
         duration: 5000,
@@ -39,11 +39,12 @@ export function usePostToast() {
         {
           description: React.createElement(ToastImageContent, { 
             imageUrl: screenshotUrl, 
-            platform: platform 
+            platform: platform,
+            postUrl: finalPostUrl
           }),
           action: {
             label: "View Post",
-            onClick: () => window.open(finalPostUrl),
+            onClick: () => window.open(finalPostUrl, "_blank", "noopener,noreferrer"),
           },
           duration: 8000,
         }
