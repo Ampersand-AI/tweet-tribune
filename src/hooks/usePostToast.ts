@@ -54,3 +54,49 @@ export function usePostToast() {
   
   return { showPostConfirmation };
 }
+
+// Add a direct export for non-hook usage contexts
+export const showPostConfirmation = (
+  content: string, 
+  platform: "twitter" | "linkedin", 
+  screenshotUrl: string,
+  postUrl?: string
+) => {
+  // Generate platform-specific post URL if not provided
+  const finalPostUrl = postUrl || (platform === "twitter" 
+    ? `https://x.com` 
+    : `https://linkedin.com/feed/`);
+  
+  // First toast - immediate confirmation
+  sonnerToast(
+    `${platform === "twitter" ? "Tweet" : "LinkedIn post"} published successfully!`,
+    {
+      description: content.substring(0, 60) + "...",
+      action: {
+        label: "View",
+        onClick: () => window.open(finalPostUrl, "_blank", "noopener,noreferrer"),
+      },
+      icon: platform === "twitter" ? "🐦" : "🔗",
+      duration: 5000,
+    }
+  );
+  
+  // Second toast - with screenshot (after a delay)
+  setTimeout(() => {
+    sonnerToast(
+      `Your ${platform === "twitter" ? "Tweet" : "LinkedIn post"} is now live!`, 
+      {
+        description: React.createElement(ToastImageContent, { 
+          imageUrl: screenshotUrl, 
+          platform: platform,
+          postUrl: finalPostUrl
+        }),
+        action: {
+          label: "View Post",
+          onClick: () => window.open(finalPostUrl, "_blank", "noopener,noreferrer"),
+        },
+        duration: 8000,
+      }
+    );
+  }, 1000);
+};

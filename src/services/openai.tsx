@@ -420,7 +420,7 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
     const contentHash = tweetContent.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const postUrl = generatePostUrl(platform, contentHash);
     
-    // Import the usePostToast hook and use it to show the confirmation
+    // Import and use the direct function export
     const { showPostConfirmation } = await import('@/hooks/usePostToast');
     showPostConfirmation(tweetContent, platform, screenshotUrl, postUrl);
     
