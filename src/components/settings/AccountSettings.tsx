@@ -17,6 +17,8 @@ import {
 } from "@/services/openai";
 import OpenRouterModelSelector from "./OpenRouterModelSelector";
 import SocialAccountDetails from "./SocialAccountDetails";
+import TwitterCredentialsForm from "./TwitterCredentialsForm";
+import LinkedInCredentialsForm from "./LinkedInCredentialsForm";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
@@ -29,11 +31,19 @@ const AccountSettings = () => {
 
   // Check if social media accounts are connected on component mount
   useEffect(() => {
+    checkTwitterConnection();
+    checkLinkedInConnection();
+    
+    // Load OpenRouter API key
+    const savedOpenRouterKey = localStorage.getItem("openrouter-api-key");
+    if (savedOpenRouterKey) {
+      setOpenRouterApiKey(savedOpenRouterKey);
+    }
+  }, []);
+  
+  const checkTwitterConnection = () => {
     const isTwitterConn = isTwitterConnected();
     setTwitterConnected(isTwitterConn);
-    
-    const isLinkedinConn = isLinkedinConnected();
-    setLinkedinConnected(isLinkedinConn);
     
     // Show success message if already connected
     if (isTwitterConn) {
@@ -42,23 +52,36 @@ const AccountSettings = () => {
       // Load Twitter profile
       setTwitterProfile(getTwitterProfile());
     }
+  };
+  
+  const checkLinkedInConnection = () => {
+    const isLinkedinConn = isLinkedinConnected();
+    setLinkedinConnected(isLinkedinConn);
     
+    // Show success message if already connected
     if (isLinkedinConn) {
       setShowLinkedinConnectSuccess(true);
       setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
       // Load LinkedIn profile
       setLinkedinProfile(getLinkedinProfile());
     }
-
-    // Load OpenRouter API key
-    const savedOpenRouterKey = localStorage.getItem("openrouter-api-key");
-    if (savedOpenRouterKey) {
-      setOpenRouterApiKey(savedOpenRouterKey);
-    }
-  }, []);
+  };
 
   const handleTwitterConnect = async () => {
     if (!twitterConnected) {
+      // Check if Twitter credentials are available
+      const apiKey = localStorage.getItem("twitter-api-key");
+      const apiSecret = localStorage.getItem("twitter-api-secret");
+      const accessToken = localStorage.getItem("twitter-access-token");
+      const accessSecret = localStorage.getItem("twitter-access-secret");
+      
+      if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+        toast.error("Twitter API credentials are required", {
+          description: "Please provide your Twitter API credentials first"
+        });
+        return;
+      }
+      
       const success = await connectToTwitter();
       
       if (success) {
@@ -88,6 +111,17 @@ const AccountSettings = () => {
 
   const handleLinkedinConnect = async () => {
     if (!linkedinConnected) {
+      // Check if LinkedIn credentials are available
+      const clientId = localStorage.getItem("linkedin-client-id");
+      const clientSecret = localStorage.getItem("linkedin-client-secret");
+      
+      if (!clientId || !clientSecret) {
+        toast.error("LinkedIn credentials are required", {
+          description: "Please provide your LinkedIn Client ID and Secret first"
+        });
+        return;
+      }
+      
       const success = await connectToLinkedin();
       
       if (success) {
@@ -111,6 +145,34 @@ const AccountSettings = () => {
       
       toast.success("LinkedIn Disconnected", {
         description: "Your LinkedIn account has been disconnected."
+      });
+    }
+  };
+
+  const handleTwitterCredentialsSubmit = (apiKey: string, apiSecret: string, accessToken: string, accessSecret: string) => {
+    // If any credentials changed, disconnect
+    if (twitterConnected) {
+      localStorage.removeItem("twitter-connected");
+      localStorage.removeItem("twitter-profile");
+      setTwitterConnected(false);
+      setTwitterProfile(null);
+      
+      toast.info("Twitter credentials updated", {
+        description: "Please reconnect your Twitter account with the new credentials."
+      });
+    }
+  };
+  
+  const handleLinkedInCredentialsSubmit = (clientId: string, clientSecret: string) => {
+    // If any credentials changed, disconnect
+    if (linkedinConnected) {
+      localStorage.removeItem("linkedin-connected");
+      localStorage.removeItem("linkedin-profile");
+      setLinkedinConnected(false);
+      setLinkedinProfile(null);
+      
+      toast.info("LinkedIn credentials updated", {
+        description: "Please reconnect your LinkedIn account with the new credentials."
       });
     }
   };
@@ -220,54 +282,11 @@ const AccountSettings = () => {
             </TabsContent>
             
             <TabsContent value="twitter" className="space-y-4 mt-4">
-              <div className="space-y-4">
-                {twitterConnected ? (
-                  <Alert className="bg-green-50 border-green-200">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-700">
-                      Twitter API key is configured and active
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <p className="text-sm text-amber-600 font-medium">
-                    Twitter is not connected. Connect it from the Social Media Accounts section above.
-                  </p>
-                )}
-                
-                {twitterConnected && (
-                  <p className="text-xs text-muted-foreground">
-                    Current API Key: dWbEeB7mH35rRfaeBAyAztDhW
-                  </p>
-                )}
-              </div>
+              <TwitterCredentialsForm onSubmit={handleTwitterCredentialsSubmit} />
             </TabsContent>
             
             <TabsContent value="linkedin" className="space-y-4 mt-4">
-              <div className="space-y-4">
-                {linkedinConnected ? (
-                  <Alert className="bg-green-50 border-green-200">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-700">
-                      LinkedIn API credentials are configured and active
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <p className="text-sm text-amber-600 font-medium">
-                    LinkedIn is not connected. Connect it from the Social Media Accounts section above.
-                  </p>
-                )}
-                
-                {linkedinConnected && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      Client ID: 776n50wy97k6rn
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Auth Key: WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==
-                    </p>
-                  </div>
-                )}
-              </div>
+              <LinkedInCredentialsForm onSubmit={handleLinkedInCredentialsSubmit} />
             </TabsContent>
           </Tabs>
         </CardContent>

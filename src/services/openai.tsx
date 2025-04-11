@@ -403,8 +403,19 @@ const postScheduledTweet = (tweet: any) => {
 
 export const connectToTwitter = async (): Promise<boolean> => {
   try {
-    // Using the hardcoded key
-    const twitterApiKey = "dWbEeB7mH35rRfaeBAyAztDhW";
+    // Get Twitter credentials from localStorage
+    const apiKey = localStorage.getItem("twitter-api-key");
+    const apiSecret = localStorage.getItem("twitter-api-secret");
+    const accessToken = localStorage.getItem("twitter-access-token");
+    const accessSecret = localStorage.getItem("twitter-access-secret");
+    
+    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+      toast.error("Twitter API credentials are required");
+      return false;
+    }
+    
+    // For demo purposes, we'll simulate a successful API connection
+    // In a real app, you would make an actual API call here
     
     // Mock profile data for demo purposes
     const mockTwitterProfile: SocialMediaProfile = {
@@ -415,8 +426,7 @@ export const connectToTwitter = async (): Promise<boolean> => {
       profileImage: "https://source.unsplash.com/featured/?portrait,woman&1"
     };
     
-    // Save the key, profile data and set connection status
-    localStorage.setItem("twitter-api-key", twitterApiKey);
+    // Save profile data and set connection status
     localStorage.setItem("twitter-profile", JSON.stringify(mockTwitterProfile));
     localStorage.setItem("twitter-connected", "true");
     
@@ -431,9 +441,17 @@ export const connectToTwitter = async (): Promise<boolean> => {
 
 export const connectToLinkedin = async (): Promise<boolean> => {
   try {
-    // Using the hardcoded credentials
-    const linkedinClientId = "776n50wy97k6rn";
-    const linkedinAuthKey = "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==";
+    // Get LinkedIn credentials from localStorage
+    const clientId = localStorage.getItem("linkedin-client-id");
+    const clientSecret = localStorage.getItem("linkedin-client-secret");
+    
+    if (!clientId || !clientSecret) {
+      toast.error("LinkedIn credentials are required");
+      return false;
+    }
+    
+    // For demo purposes, we'll simulate a successful API connection
+    // In a real app, you would make an actual API call here
     
     // Mock profile data for demo purposes
     const mockLinkedinProfile: SocialMediaProfile = {
@@ -443,9 +461,7 @@ export const connectToLinkedin = async (): Promise<boolean> => {
       profileImage: "https://source.unsplash.com/featured/?professional,woman&1"
     };
     
-    // Save the credentials, profile data and set connection status
-    localStorage.setItem("linkedin-client-id", linkedinClientId);
-    localStorage.setItem("linkedin-auth-key", linkedinAuthKey);
+    // Save profile data and set connection status
     localStorage.setItem("linkedin-profile", JSON.stringify(mockLinkedinProfile));
     localStorage.setItem("linkedin-connected", "true");
     
@@ -459,16 +475,17 @@ export const connectToLinkedin = async (): Promise<boolean> => {
 };
 
 export const isTwitterConnected = (): boolean => {
-  const connected = localStorage.getItem("twitter-connected") === "true";
-  const hasKey = localStorage.getItem("twitter-api-key") === "dWbEeB7mH35rRfaeBAyAztDhW";
-  return connected && hasKey;
+  return localStorage.getItem("twitter-connected") === "true" && 
+         !!localStorage.getItem("twitter-api-key") &&
+         !!localStorage.getItem("twitter-api-secret") &&
+         !!localStorage.getItem("twitter-access-token") && 
+         !!localStorage.getItem("twitter-access-secret");
 };
 
 export const isLinkedinConnected = (): boolean => {
-  const connected = localStorage.getItem("linkedin-connected") === "true";
-  const hasClientId = localStorage.getItem("linkedin-client-id") === "776n50wy97k6rn";
-  const hasAuthKey = localStorage.getItem("linkedin-auth-key") === "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==";
-  return connected && hasClientId && hasAuthKey;
+  return localStorage.getItem("linkedin-connected") === "true" &&
+         !!localStorage.getItem("linkedin-client-id") &&
+         !!localStorage.getItem("linkedin-client-secret");
 };
 
 export const getTwitterProfile = (): SocialMediaProfile | null => {
