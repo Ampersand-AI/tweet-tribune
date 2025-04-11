@@ -9,6 +9,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { generateTweets, isTwitterConnected, isLinkedinConnected, postTweet } from "@/services/openai";
 import TweetPreview from "./TweetPreview";
 import { sendGeneratedTweetsToSchedule } from "@/pages/Index";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getSelectedOpenRouterModels } from "@/services/openrouter";
 
 interface TweetGeneratorProps {
   selectedTopic: {
@@ -19,8 +21,8 @@ interface TweetGeneratorProps {
   };
 }
 
-// Update the type to only allow "deepseek"
-type ApiProvider = "deepseek";
+// Update the type to allow multiple API providers
+type ApiProvider = "deepseek" | "openrouter";
 
 const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [generatedTweets, setGeneratedTweets] = useState<any[]>([]);
@@ -30,11 +32,13 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   const [selectedApiProvider, setSelectedApiProvider] = useState<ApiProvider>("deepseek");
   const [activeApiTab, setActiveApiTab] = useState<ApiProvider>("deepseek");
   const [deepseekApiKey, setDeepseekApiKey] = useState("");
+  const [openRouterApiKey, setOpenRouterApiKey] = useState("");
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [showApiSuccess, setShowApiSuccess] = useState(false);
   const [selectedTweets, setSelectedTweets] = useState<string[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<"twitter" | "linkedin">("twitter");
+  const [selectedOpenRouterModels, setSelectedOpenRouterModels] = useState<any[]>([]);
 
   const tones = [
     { value: "professional", label: "Professional" },
@@ -44,8 +48,12 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   ];
 
   const saveApiKey = () => {
-    if (deepseekApiKey) {
+    if (activeApiTab === "deepseek" && deepseekApiKey) {
       localStorage.setItem("deepseek-api-key", deepseekApiKey);
+      setShowApiSuccess(true);
+      setTimeout(() => setShowApiSuccess(false), 5000);
+    } else if (activeApiTab === "openrouter" && openRouterApiKey) {
+      localStorage.setItem("openrouter-api-key", openRouterApiKey);
       setShowApiSuccess(true);
       setTimeout(() => setShowApiSuccess(false), 5000);
     }
@@ -127,16 +135,27 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
   useEffect(() => {
     // Load API keys from localStorage
     const savedDeepseekKey = localStorage.getItem("deepseek-api-key");
-    
     if (savedDeepseekKey) {
       setDeepseekApiKey(savedDeepseekKey);
-      setShowApiSuccess(true);
-      setTimeout(() => setShowApiSuccess(false), 5000);
     }
     
-    // Auto-select deepseek API
-    setSelectedApiProvider("deepseek");
-    setActiveApiTab("deepseek");
+    const savedOpenRouterKey = localStorage.getItem("openrouter-api-key");
+    if (savedOpenRouterKey) {
+      setOpenRouterApiKey(savedOpenRouterKey);
+    }
+    
+    // Load selected OpenRouter models
+    const models = getSelectedOpenRouterModels();
+    setSelectedOpenRouterModels(models);
+    
+    // Auto-select API provider based on available keys
+    if (savedOpenRouterKey && models.length > 0) {
+      setSelectedApiProvider("openrouter");
+      setActiveApiTab("openrouter");
+    } else if (savedDeepseekKey) {
+      setSelectedApiProvider("deepseek");
+      setActiveApiTab("deepseek");
+    }
     
     // Check social media connection status
     const isTwitterConn = isTwitterConnected();
@@ -205,15 +224,35 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
               <div>
                 <h3 className="text-lg font-medium mb-2">API Provider</h3>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2"
-                    disabled
+                  <Select 
+                    value={selectedApiProvider} 
+                    onValueChange={(value) => setSelectedApiProvider(value as ApiProvider)}
                   >
-                    {selectedApiProvider === "deepseek" && <Check className="h-4 w-4" />}
-                    DeepSeek
-                  </Button>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select API Provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="deepseek" disabled={!deepseekApiKey}>
+                        DeepSeek {!deepseekApiKey && "(No API key)"}
+                      </SelectItem>
+                      <SelectItem 
+                        value="openrouter" 
+                        disabled={!openRouterApiKey || selectedOpenRouterModels.length === 0}
+                      >
+                        OpenRouter {(!openRouterApiKey || selectedOpenRouterModels.length === 0) && "(Setup required)"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+                
+                {selectedApiProvider === "openrouter" && selectedOpenRouterModels.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs text-muted-foreground">
+                      Using {selectedOpenRouterModels[0]?.name || "Unknown"} as primary model 
+                      {selectedOpenRouterModels.length > 1 ? ` with ${selectedOpenRouterModels.length - 1} fallbacks` : ""}
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -270,7 +309,13 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
               
               <Button 
                 onClick={handleGenerate} 
-                disabled={isGenerating || !deepseekApiKey || (selectedPlatform === "twitter" && !twitterConnected) || (selectedPlatform === "linkedin" && !linkedinConnected)} 
+                disabled={
+                  isGenerating || 
+                  (selectedApiProvider === "deepseek" && !deepseekApiKey) || 
+                  (selectedApiProvider === "openrouter" && (!openRouterApiKey || selectedOpenRouterModels.length === 0)) || 
+                  (selectedPlatform === "twitter" && !twitterConnected) || 
+                  (selectedPlatform === "linkedin" && !linkedinConnected)
+                } 
                 className="w-full md:w-auto mt-4"
               >
                 {isGenerating ? (
@@ -290,6 +335,7 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
           <Tabs value={activeApiTab} onValueChange={(v) => setActiveApiTab(v as ApiProvider)}>
             <TabsList className="mb-4">
               <TabsTrigger value="deepseek">DeepSeek</TabsTrigger>
+              <TabsTrigger value="openrouter">OpenRouter</TabsTrigger>
             </TabsList>
             
             <TabsContent value="deepseek" className="space-y-4">
@@ -305,10 +351,68 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
                     />
                     <Button onClick={saveApiKey}>Save</Button>
                   </div>
-                  {showApiSuccess && (
+                  {activeApiTab === "deepseek" && showApiSuccess && (
                     <p className="text-green-500 text-sm">API key saved successfully!</p>
                   )}
                 </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="openrouter" className="space-y-4">
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">OpenRouter API Key</h3>
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      type="password" 
+                      placeholder="Enter your OpenRouter API key" 
+                      value={openRouterApiKey}
+                      onChange={(e) => setOpenRouterApiKey(e.target.value)}
+                    />
+                    <Button onClick={saveApiKey}>Save</Button>
+                  </div>
+                  {activeApiTab === "openrouter" && showApiSuccess && (
+                    <p className="text-green-500 text-sm">API key saved successfully!</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    After saving your OpenRouter API key, visit the Settings page to configure model selection
+                  </p>
+                </div>
+                
+                {selectedOpenRouterModels.length > 0 && (
+                  <div className="mt-4 border rounded-md p-4">
+                    <h4 className="font-medium mb-2">Selected OpenRouter Models</h4>
+                    <div className="space-y-2">
+                      {selectedOpenRouterModels.map((model, index) => (
+                        <div key={model.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md">
+                          <div>
+                            <p className="font-medium text-sm">{model.name}</p>
+                            <p className="text-xs text-muted-foreground">{model.provider}</p>
+                          </div>
+                          <div className="text-xs px-2 py-1 bg-primary/10 rounded-full">
+                            {index === 0 ? "Primary" : `Fallback ${index}`}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2 w-full"
+                      onClick={() => window.location.href = "/settings"}
+                    >
+                      Configure Models in Settings
+                    </Button>
+                  </div>
+                )}
+                
+                {openRouterApiKey && selectedOpenRouterModels.length === 0 && (
+                  <Alert>
+                    <AlertDescription>
+                      Please visit the Settings page to select OpenRouter models.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </TabsContent>
           </Tabs>

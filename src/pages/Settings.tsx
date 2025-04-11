@@ -13,6 +13,11 @@ const Settings = () => {
       console.log("DeepSeek API key initialized");
     }
     
+    // Set OpenRouter API key if not already set
+    if (!localStorage.getItem("openrouter-api-key")) {
+      localStorage.setItem("openrouter-api-key", "");
+    }
+    
     // Set LinkedIn API credentials if not already set
     if (!localStorage.getItem("linkedin-client-id")) {
       localStorage.setItem("linkedin-client-id", "776n50wy97k6rn");

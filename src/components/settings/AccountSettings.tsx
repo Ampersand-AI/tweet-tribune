@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,12 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { connectToTwitter, isTwitterConnected, connectToLinkedin, isLinkedinConnected } from "@/services/openai";
+import OpenRouterModelSelector from "./OpenRouterModelSelector";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
   const [linkedinConnected, setLinkedinConnected] = useState(false);
   const [showConnectSuccess, setShowConnectSuccess] = useState(false);
   const [showLinkedinConnectSuccess, setShowLinkedinConnectSuccess] = useState(false);
+  const [openRouterApiKey, setOpenRouterApiKey] = useState("");
 
   // Check if social media accounts are connected on component mount
   useEffect(() => {
@@ -32,6 +33,12 @@ const AccountSettings = () => {
     if (isLinkedinConn) {
       setShowLinkedinConnectSuccess(true);
       setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
+    }
+
+    // Load OpenRouter API key
+    const savedOpenRouterKey = localStorage.getItem("openrouter-api-key");
+    if (savedOpenRouterKey) {
+      setOpenRouterApiKey(savedOpenRouterKey);
     }
   }, []);
 
@@ -77,6 +84,10 @@ const AccountSettings = () => {
         description: "Your LinkedIn account has been disconnected."
       });
     }
+  };
+
+  const handleOpenRouterApiKeySubmit = (apiKey: string) => {
+    setOpenRouterApiKey(apiKey);
   };
 
   return (
@@ -136,12 +147,25 @@ const AccountSettings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="openai" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs defaultValue="openrouter" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="openrouter">OpenRouter</TabsTrigger>
               <TabsTrigger value="openai">Claude AI</TabsTrigger>
               <TabsTrigger value="twitter">Twitter</TabsTrigger>
               <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
             </TabsList>
+            
+            <TabsContent value="openrouter" className="space-y-4 mt-4">
+              <ApiKeyForm 
+                keyType="openrouter"
+                label="OpenRouter API Key"
+                placeholder="sk_or_..."
+                description="Your OpenRouter API key is stored locally and never sent to our servers."
+                onApiKeySubmit={handleOpenRouterApiKeySubmit}
+              />
+              
+              {openRouterApiKey && <OpenRouterModelSelector apiKey={openRouterApiKey} />}
+            </TabsContent>
             
             <TabsContent value="openai" className="space-y-4 mt-4">
               <ApiKeyForm 

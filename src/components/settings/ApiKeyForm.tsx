@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 
 interface ApiKeyFormProps {
-  keyType: "openai" | "twitter" | "twitter-secret" | "gemini" | "deepseek";
+  keyType: "openai" | "twitter" | "twitter-secret" | "gemini" | "deepseek" | "openrouter";
   label: string;
   placeholder: string;
   description?: string;

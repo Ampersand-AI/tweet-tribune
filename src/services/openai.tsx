@@ -3,6 +3,7 @@ import React from "react";
 import { toast } from "sonner";
 import ToastImageContent from "@/components/toast/ToastImageContent";
 import { useToast } from "@/hooks/use-toast";
+import { generateContentWithOpenRouter } from "./openrouter";
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -13,7 +14,7 @@ interface TweetGenerationProps {
   topic: string;
   tone: string;
   customInstructions?: string;
-  apiProvider?: "deepseek";
+  apiProvider?: "deepseek" | "openrouter";
   platform?: "twitter" | "linkedin";
 }
 
@@ -223,6 +224,66 @@ const generateTweetsWithDeepSeek = async (
   }
 };
 
+// Generate tweets using OpenRouter API
+const generateTweetsWithOpenRouter = async (
+  topic: string,
+  tone: string,
+  customInstructions: string = "",
+  platform: "twitter" | "linkedin" = "twitter"
+): Promise<Tweet[]> => {
+  try {
+    const apiKey = localStorage.getItem("openrouter-api-key");
+    
+    if (!apiKey) {
+      toast.error("OpenRouter API key is required");
+      return [];
+    }
+
+    const platformSpecificInstructions = platform === "twitter" 
+      ? "Each tweet should be under 280 characters, include relevant hashtags, and express original thoughts."
+      : "Each post should be under 700 characters, include relevant hashtags, and express professional insights. LinkedIn posts should be slightly more formal and business-oriented than Twitter.";
+
+    const systemPrompt = `You are a professional ${platform} content writer. Generate exactly 3 engaging posts about the topic provided. Use your own words and insights, not just links or forwards. Each post should feel personal and authentic. Include relevant hashtags naturally within the content.
+    ${platformSpecificInstructions}
+    ${tone ? `The tone should be ${tone}.` : ''}
+    ${customInstructions || ''}`;
+
+    const userPrompt = `Generate 3 unique, engaging posts for ${platform} about "${topic}". Write in first person as if I'm posting these myself.`;
+
+    console.log(`Sending request to OpenRouter API with prompt for ${platform}:`, userPrompt);
+
+    try {
+      const content = await generateContentWithOpenRouter(userPrompt, systemPrompt);
+      
+      if (!content) {
+        toast.error(`Couldn't generate ${platform} posts with OpenRouter`);
+        return [];
+      }
+      
+      console.log(`Raw content from OpenRouter for ${platform}:`, content);
+      
+      // Extract tweets from the content
+      const tweets = extractTweetsFromText(content, topic, platform);
+      
+      if (tweets.length === 0) {
+        toast.error(`Couldn't parse ${platform} posts from OpenRouter response`);
+        return [];
+      }
+      
+      toast.success(`Generated ${tweets.length} ${platform} posts with OpenRouter`);
+      return tweets;
+    } catch (fetchError: any) {
+      console.error("OpenRouter fetch error:", fetchError);
+      toast.error(`Network error: ${fetchError.message || `Failed to connect to OpenRouter API for ${platform} post generation`}`);
+      return [];
+    }
+  } catch (error: any) {
+    console.error(`Error generating ${platform} posts with OpenRouter:`, error);
+    toast.error(error instanceof Error ? error.message : `Failed to generate ${platform} posts`);
+    return [];
+  }
+};
+
 // Main function to generate tweets using the selected API provider
 export const generateTweets = async ({
   topic,
@@ -232,7 +293,12 @@ export const generateTweets = async ({
   platform = "twitter"
 }: TweetGenerationProps): Promise<Tweet[]> => {
   console.log(`Generating ${platform} posts using ${apiProvider} API`);
-  return generateTweetsWithDeepSeek(topic, tone, customInstructions, platform);
+  
+  if (apiProvider === "openrouter") {
+    return generateTweetsWithOpenRouter(topic, tone, customInstructions, platform);
+  } else {
+    return generateTweetsWithDeepSeek(topic, tone, customInstructions, platform);
+  }
 };
 
 // Twitter connection and tweet functionality
