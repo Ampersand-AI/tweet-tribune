@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,8 @@ const AccountSettings = () => {
       const profileData = getTwitterProfile();
       setTwitterProfile(profileData);
       console.log("Loaded Twitter profile:", profileData);
+    } else {
+      setTwitterProfile(null);
     }
   };
   
@@ -67,6 +70,8 @@ const AccountSettings = () => {
       const profileData = getLinkedinProfile();
       setLinkedinProfile(profileData);
       console.log("Loaded LinkedIn profile:", profileData);
+    } else {
+      setLinkedinProfile(null);
     }
   };
 
