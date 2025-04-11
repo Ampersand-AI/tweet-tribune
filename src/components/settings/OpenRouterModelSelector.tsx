@@ -89,6 +89,20 @@ const OpenRouterModelSelector = ({ apiKey }: OpenRouterModelSelectorProps) => {
     }
   }, [apiKey]);
 
+  // Helper function to safely format pricing values
+  const formatPrice = (price: any): string => {
+    if (typeof price === 'number') {
+      return price.toFixed(6);
+    } else if (typeof price === 'string') {
+      // Try to convert string to number
+      const numPrice = parseFloat(price);
+      return isNaN(numPrice) ? '0.000000' : numPrice.toFixed(6);
+    } else {
+      // Return default value if price is undefined or another type
+      return '0.000000';
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -183,8 +197,8 @@ const OpenRouterModelSelector = ({ apiKey }: OpenRouterModelSelectorProps) => {
                 </div>
                 <div className="text-xs text-right">
                   <div className="font-medium">Pricing</div>
-                  <div>Input: ${model.pricing.prompt.toFixed(6)}/1K tokens</div>
-                  <div>Output: ${model.pricing.completion.toFixed(6)}/1K tokens</div>
+                  <div>Input: ${formatPrice(model.pricing?.prompt)}/1K tokens</div>
+                  <div>Output: ${formatPrice(model.pricing?.completion)}/1K tokens</div>
                 </div>
               </CardContent>
             </Card>
