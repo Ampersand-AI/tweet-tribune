@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import ToastImageContent from "@/components/toast/ToastImageContent";
 import { useToast } from "@/hooks/use-toast";
 import { generateContentWithOpenRouter } from "./openrouter";
+import { showPostConfirmation } from '@/hooks/usePostToast';
 
 interface Message {
   role: "user" | "assistant" | "system";
@@ -28,6 +29,15 @@ interface Tweet {
   status?: string;
   platform?: "twitter" | "linkedin";
   screenshotUrl?: string;
+}
+
+// New interface for social media profiles
+interface SocialMediaProfile {
+  name: string;
+  username?: string;
+  followers: number;
+  following?: number;
+  profileImage?: string;
 }
 
 // Helper function to extract tweets from text content
@@ -396,8 +406,18 @@ export const connectToTwitter = async (): Promise<boolean> => {
     // Using the hardcoded key
     const twitterApiKey = "dWbEeB7mH35rRfaeBAyAztDhW";
     
-    // Save the key and set connection status
+    // Mock profile data for demo purposes
+    const mockTwitterProfile: SocialMediaProfile = {
+      name: "Jane Smith",
+      username: "janesmith",
+      followers: 2457,
+      following: 532,
+      profileImage: "https://source.unsplash.com/featured/?portrait,woman&1"
+    };
+    
+    // Save the key, profile data and set connection status
     localStorage.setItem("twitter-api-key", twitterApiKey);
+    localStorage.setItem("twitter-profile", JSON.stringify(mockTwitterProfile));
     localStorage.setItem("twitter-connected", "true");
     
     toast.success("Successfully connected to Twitter");
@@ -415,9 +435,18 @@ export const connectToLinkedin = async (): Promise<boolean> => {
     const linkedinClientId = "776n50wy97k6rn";
     const linkedinAuthKey = "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==";
     
-    // Save the credentials and set connection status
+    // Mock profile data for demo purposes
+    const mockLinkedinProfile: SocialMediaProfile = {
+      name: "Jane Smith, MBA",
+      username: "jane-smith-mba",
+      followers: 1278,
+      profileImage: "https://source.unsplash.com/featured/?professional,woman&1"
+    };
+    
+    // Save the credentials, profile data and set connection status
     localStorage.setItem("linkedin-client-id", linkedinClientId);
     localStorage.setItem("linkedin-auth-key", linkedinAuthKey);
+    localStorage.setItem("linkedin-profile", JSON.stringify(mockLinkedinProfile));
     localStorage.setItem("linkedin-connected", "true");
     
     toast.success("Successfully connected to LinkedIn");
@@ -440,6 +469,16 @@ export const isLinkedinConnected = (): boolean => {
   const hasClientId = localStorage.getItem("linkedin-client-id") === "776n50wy97k6rn";
   const hasAuthKey = localStorage.getItem("linkedin-auth-key") === "WPL_AP1.VrsAeeeyhPxYz7CT.ITUw+Q==";
   return connected && hasClientId && hasAuthKey;
+};
+
+export const getTwitterProfile = (): SocialMediaProfile | null => {
+  const profileData = localStorage.getItem("twitter-profile");
+  return profileData ? JSON.parse(profileData) : null;
+};
+
+export const getLinkedinProfile = (): SocialMediaProfile | null => {
+  const profileData = localStorage.getItem("linkedin-profile");
+  return profileData ? JSON.parse(profileData) : null;
 };
 
 // Function to generate a fake screenshot URL based on platform and content
@@ -487,7 +526,6 @@ export const postTweet = async (tweetContent: string, imageUrl?: string, platfor
     const postUrl = generatePostUrl(platform, contentHash);
     
     // Import and use the direct function export
-    const { showPostConfirmation } = await import('@/hooks/usePostToast');
     showPostConfirmation(tweetContent, platform, screenshotUrl, postUrl);
     
     // Save to post history

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +7,16 @@ import ApiKeyForm from "./ApiKeyForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { connectToTwitter, isTwitterConnected, connectToLinkedin, isLinkedinConnected } from "@/services/openai";
+import { 
+  connectToTwitter, 
+  isTwitterConnected, 
+  connectToLinkedin, 
+  isLinkedinConnected,
+  getTwitterProfile,
+  getLinkedinProfile
+} from "@/services/openai";
 import OpenRouterModelSelector from "./OpenRouterModelSelector";
+import SocialAccountDetails from "./SocialAccountDetails";
 
 const AccountSettings = () => {
   const [twitterConnected, setTwitterConnected] = useState(false);
@@ -15,6 +24,8 @@ const AccountSettings = () => {
   const [showConnectSuccess, setShowConnectSuccess] = useState(false);
   const [showLinkedinConnectSuccess, setShowLinkedinConnectSuccess] = useState(false);
   const [openRouterApiKey, setOpenRouterApiKey] = useState("");
+  const [twitterProfile, setTwitterProfile] = useState<any>(null);
+  const [linkedinProfile, setLinkedinProfile] = useState<any>(null);
 
   // Check if social media accounts are connected on component mount
   useEffect(() => {
@@ -28,11 +39,15 @@ const AccountSettings = () => {
     if (isTwitterConn) {
       setShowConnectSuccess(true);
       setTimeout(() => setShowConnectSuccess(false), 5000);
+      // Load Twitter profile
+      setTwitterProfile(getTwitterProfile());
     }
     
     if (isLinkedinConn) {
       setShowLinkedinConnectSuccess(true);
       setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
+      // Load LinkedIn profile
+      setLinkedinProfile(getLinkedinProfile());
     }
 
     // Load OpenRouter API key
@@ -50,6 +65,10 @@ const AccountSettings = () => {
         setTwitterConnected(true);
         setShowConnectSuccess(true);
         setTimeout(() => setShowConnectSuccess(false), 5000);
+        
+        // Load Twitter profile after successful connection
+        setTwitterProfile(getTwitterProfile());
+        
         toast.success("Twitter Connected", {
           description: "Your Twitter account has been successfully connected."
         });
@@ -57,7 +76,10 @@ const AccountSettings = () => {
     } else {
       // Disconnect from Twitter
       localStorage.removeItem("twitter-connected");
+      localStorage.removeItem("twitter-profile");
       setTwitterConnected(false);
+      setTwitterProfile(null);
+      
       toast.success("Twitter Disconnected", {
         description: "Your Twitter account has been disconnected."
       });
@@ -72,6 +94,10 @@ const AccountSettings = () => {
         setLinkedinConnected(true);
         setShowLinkedinConnectSuccess(true);
         setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
+        
+        // Load LinkedIn profile after successful connection
+        setLinkedinProfile(getLinkedinProfile());
+        
         toast.success("LinkedIn Connected", {
           description: "Your LinkedIn account has been successfully connected."
         });
@@ -79,7 +105,10 @@ const AccountSettings = () => {
     } else {
       // Disconnect from LinkedIn
       localStorage.removeItem("linkedin-connected");
+      localStorage.removeItem("linkedin-profile");
       setLinkedinConnected(false);
+      setLinkedinProfile(null);
+      
       toast.success("LinkedIn Disconnected", {
         description: "Your LinkedIn account has been disconnected."
       });
@@ -127,14 +156,23 @@ const AccountSettings = () => {
               <Twitter className="mr-2 h-5 w-5 text-twitter" />
               {twitterConnected ? "Disconnect Twitter Account" : "Connect Twitter Account"}
             </Button>
+            
+            {twitterConnected && twitterProfile && (
+              <SocialAccountDetails platform="twitter" profile={twitterProfile} />
+            )}
+            
             <Button 
-              className="justify-start" 
+              className="justify-start mt-4" 
               variant={linkedinConnected ? "default" : "outline"}
               onClick={handleLinkedinConnect}
             >
               <Linkedin className="mr-2 h-5 w-5 text-linkedin" />
               {linkedinConnected ? "Disconnect LinkedIn Account" : "Connect LinkedIn Account"}
             </Button>
+            
+            {linkedinConnected && linkedinProfile && (
+              <SocialAccountDetails platform="linkedin" profile={linkedinProfile} />
+            )}
           </div>
         </CardContent>
       </Card>
