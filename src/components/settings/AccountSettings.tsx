@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,12 +44,14 @@ const AccountSettings = () => {
     const isTwitterConn = isTwitterConnected();
     setTwitterConnected(isTwitterConn);
     
-    // Show success message if already connected
     if (isTwitterConn) {
       setShowConnectSuccess(true);
       setTimeout(() => setShowConnectSuccess(false), 5000);
-      // Load Twitter profile
-      setTwitterProfile(getTwitterProfile());
+      
+      // Load Twitter profile data
+      const profileData = getTwitterProfile();
+      setTwitterProfile(profileData);
+      console.log("Loaded Twitter profile:", profileData);
     }
   };
   
@@ -58,12 +59,14 @@ const AccountSettings = () => {
     const isLinkedinConn = isLinkedinConnected();
     setLinkedinConnected(isLinkedinConn);
     
-    // Show success message if already connected
     if (isLinkedinConn) {
       setShowLinkedinConnectSuccess(true);
       setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
-      // Load LinkedIn profile
-      setLinkedinProfile(getLinkedinProfile());
+      
+      // Load LinkedIn profile data
+      const profileData = getLinkedinProfile();
+      setLinkedinProfile(profileData);
+      console.log("Loaded LinkedIn profile:", profileData);
     }
   };
 
@@ -89,8 +92,10 @@ const AccountSettings = () => {
         setShowConnectSuccess(true);
         setTimeout(() => setShowConnectSuccess(false), 5000);
         
-        // Load Twitter profile after successful connection
-        setTwitterProfile(getTwitterProfile());
+        // Get the Twitter profile right after successful connection
+        const profileData = getTwitterProfile();
+        setTwitterProfile(profileData);
+        console.log("Connected Twitter and loaded profile:", profileData);
         
         toast.success("Twitter Connected", {
           description: "Your Twitter account has been successfully connected."
@@ -129,8 +134,10 @@ const AccountSettings = () => {
         setShowLinkedinConnectSuccess(true);
         setTimeout(() => setShowLinkedinConnectSuccess(false), 5000);
         
-        // Load LinkedIn profile after successful connection
-        setLinkedinProfile(getLinkedinProfile());
+        // Get the LinkedIn profile right after successful connection
+        const profileData = getLinkedinProfile();
+        setLinkedinProfile(profileData);
+        console.log("Connected LinkedIn and loaded profile:", profileData);
         
         toast.success("LinkedIn Connected", {
           description: "Your LinkedIn account has been successfully connected."

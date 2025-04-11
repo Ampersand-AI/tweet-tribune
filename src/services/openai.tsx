@@ -401,6 +401,7 @@ const postScheduledTweet = (tweet: any) => {
   updateAnalytics();
 };
 
+// Connect to Twitter function
 export const connectToTwitter = async (): Promise<boolean> => {
   try {
     // Get Twitter credentials from localStorage
@@ -415,22 +416,23 @@ export const connectToTwitter = async (): Promise<boolean> => {
     }
     
     // For demo purposes, we'll simulate a successful API connection
-    // In a real app, you would make an actual API call here
+    // Generate a profile based on the credentials to make it appear different for different users
+    const hash = (apiKey + apiSecret).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
     
-    // Mock profile data for demo purposes
+    // Mock profile data using hash for some variance
     const mockTwitterProfile: SocialMediaProfile = {
-      name: "Jane Smith",
-      username: "janesmith",
-      followers: 2457,
-      following: 532,
-      profileImage: "https://source.unsplash.com/featured/?portrait,woman&1"
+      name: `User ${hash % 1000}`,
+      username: `user${hash % 1000}`,
+      followers: 2000 + (hash % 1000),
+      following: 500 + (hash % 100),
+      profileImage: `https://source.unsplash.com/featured/?portrait,professional&${hash}`
     };
     
     // Save profile data and set connection status
     localStorage.setItem("twitter-profile", JSON.stringify(mockTwitterProfile));
     localStorage.setItem("twitter-connected", "true");
     
-    toast.success("Successfully connected to Twitter");
+    console.log("Twitter connected with profile:", mockTwitterProfile);
     return true;
   } catch (error) {
     console.error("Error connecting to Twitter:", error);
@@ -450,22 +452,22 @@ export const connectToLinkedin = async (): Promise<boolean> => {
       return false;
     }
     
-    // For demo purposes, we'll simulate a successful API connection
-    // In a real app, you would make an actual API call here
+    // Generate a profile based on the credentials to make it appear different for different users
+    const hash = (clientId + clientSecret).split('').reduce((a, b) => a + b.charCodeAt(0), 0);
     
-    // Mock profile data for demo purposes
+    // Mock profile data using hash for some variance
     const mockLinkedinProfile: SocialMediaProfile = {
-      name: "Jane Smith, MBA",
-      username: "jane-smith-mba",
-      followers: 1278,
-      profileImage: "https://source.unsplash.com/featured/?professional,woman&1"
+      name: `Professional ${hash % 500}`,
+      username: `professional-${hash % 500}`,
+      followers: 1000 + (hash % 500),
+      profileImage: `https://source.unsplash.com/featured/?business,professional&${hash}`
     };
     
     // Save profile data and set connection status
     localStorage.setItem("linkedin-profile", JSON.stringify(mockLinkedinProfile));
     localStorage.setItem("linkedin-connected", "true");
     
-    toast.success("Successfully connected to LinkedIn");
+    console.log("LinkedIn connected with profile:", mockLinkedinProfile);
     return true;
   } catch (error) {
     console.error("Error connecting to LinkedIn:", error);
@@ -489,13 +491,27 @@ export const isLinkedinConnected = (): boolean => {
 };
 
 export const getTwitterProfile = (): SocialMediaProfile | null => {
-  const profileData = localStorage.getItem("twitter-profile");
-  return profileData ? JSON.parse(profileData) : null;
+  try {
+    const profileData = localStorage.getItem("twitter-profile");
+    if (!profileData) return null;
+    
+    return JSON.parse(profileData);
+  } catch (error) {
+    console.error("Error getting Twitter profile:", error);
+    return null;
+  }
 };
 
 export const getLinkedinProfile = (): SocialMediaProfile | null => {
-  const profileData = localStorage.getItem("linkedin-profile");
-  return profileData ? JSON.parse(profileData) : null;
+  try {
+    const profileData = localStorage.getItem("linkedin-profile");
+    if (!profileData) return null;
+    
+    return JSON.parse(profileData);
+  } catch (error) {
+    console.error("Error getting LinkedIn profile:", error);
+    return null;
+  }
 };
 
 // Function to generate a fake screenshot URL based on platform and content
