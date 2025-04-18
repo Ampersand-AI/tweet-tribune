@@ -393,7 +393,7 @@ const postScheduledTweet = (tweet: any) => {
         label: "View",
         onClick: () => window.open(postUrl),
       },
-      duration: 5000,
+      duration: 5050,
     }
   );
   
