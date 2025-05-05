@@ -51,11 +51,11 @@ const TweetGenerator = ({ selectedTopic }: TweetGeneratorProps) => {
     if (activeApiTab === "deepseek" && deepseekApiKey) {
       localStorage.setItem("deepseek-api-key", deepseekApiKey);
       setShowApiSuccess(true);
-      setTimeout(() => setShowApiSuccess(false), 5050);
+      setTimeout(() => setShowApiSuccess(false), 5000);
     } else if (activeApiTab === "openrouter" && openRouterApiKey) {
       localStorage.setItem("openrouter-api-key", openRouterApiKey);
       setShowApiSuccess(true);
-      setTimeout(() => setShowApiSuccess(false), 5050);
+      setTimeout(() => setShowApiSuccess(false), 5000);
     }
   };
 

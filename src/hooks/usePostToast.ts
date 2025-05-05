@@ -28,7 +28,7 @@ export function usePostToast() {
           onClick: () => window.open(finalPostUrl, "_blank", "noopener,noreferrer"),
         },
         icon: platform === "twitter" ? "🐦" : "🔗",
-        duration: 5050,
+        duration: 5000,
       }
     );
     
@@ -77,7 +77,7 @@ export const showPostConfirmation = (
         onClick: () => window.open(finalPostUrl, "_blank", "noopener,noreferrer"),
       },
       icon: platform === "twitter" ? "🐦" : "🔗",
-      duration: 5050,
+      duration: 5000,
     }
   );
   
