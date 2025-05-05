@@ -22,7 +22,7 @@ const TweetAnalysis = () => {
     setIsLoading(true);
     try {
       console.log('Sending request to backend...');
-      const response = await fetch("http://localhost:3001/api/analyze-tweet", {
+      const response = await fetch("/api/analyze-tweet", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

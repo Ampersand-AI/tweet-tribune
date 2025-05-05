@@ -7,15 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Twitter, Linkedin, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 
 const SocialCredentials = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [twitterApiKey, setTwitterApiKey] = useState("");
-  const [twitterApiSecret, setTwitterApiSecret] = useState("");
-  const [linkedinClientId, setLinkedinClientId] = useState("");
-  const [linkedinClientSecret, setLinkedinClientSecret] = useState("");
+  const [isTwitterLoading, setIsTwitterLoading] = useState(false);
+  const [isLinkedInLoading, setIsLinkedInLoading] = useState(false);
+  const [twitterUsername, setTwitterUsername] = useState<string | null>(localStorage.getItem('twitter_username'));
+  const [linkedInUsername, setLinkedInUsername] = useState<string | null>(localStorage.getItem('linkedin_username'));
+  const [twitterApiKey, setTwitterApiKey] = useState<string>("");
+  const [twitterApiSecret, setTwitterApiSecret] = useState<string>("");
   const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   useEffect(() => {
     // Check for Twitter OAuth callback
@@ -29,24 +32,145 @@ const SocialCredentials = () => {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    // Check if we have Twitter OAuth response in the URL
+    const params = new URLSearchParams(location.search);
+    const twitterAccessToken = params.get('twitter_access_token');
+    const twitterRefreshToken = params.get('twitter_refresh_token');
+    const twitterUsername = params.get('twitter_username');
+    const twitterError = params.get('error');
+
+    if (twitterError) {
+      toast.error(`Twitter authentication failed: ${twitterError}`);
+      return;
+    }
+
+    if (twitterAccessToken && twitterUsername) {
+      console.log('Found Twitter credentials in URL, saving to local storage');
+      localStorage.setItem('twitter_access_token', twitterAccessToken);
+      if (twitterRefreshToken) {
+        localStorage.setItem('twitter_refresh_token', twitterRefreshToken);
+      }
+      localStorage.setItem('twitter_username', twitterUsername);
+      
+      setTwitterUsername(twitterUsername);
+      toast.success(`Connected to Twitter as @${twitterUsername}`);
+      
+      // Clean the URL to remove the tokens
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.search = '';
+      window.history.replaceState({}, document.title, cleanUrl.toString());
+    }
+  }, [location]);
+
+  useEffect(() => {
+    // Check if we have LinkedIn OAuth response in the URL
+    const params = new URLSearchParams(location.search);
+    const linkedinAccessToken = params.get('linkedin_access_token');
+    const linkedinUsername = params.get('linkedin_username');
+    const linkedinUserId = params.get('linkedin_user_id');
+    const linkedinExpiresAt = params.get('linkedin_expires_at');
+    const linkedinRefreshToken = params.get('linkedin_refresh_token');
+    const linkedinEmail = params.get('linkedin_email');
+    const error = params.get('error');
+
+    if (error) {
+      toast.error(`Authentication failed: ${error}`);
+      return;
+    }
+
+    if (linkedinAccessToken && linkedinUsername) {
+      console.log('Found LinkedIn credentials in URL, saving to local storage');
+      localStorage.setItem('linkedin_access_token', linkedinAccessToken);
+      localStorage.setItem('linkedin_username', linkedinUsername);
+      localStorage.setItem('linkedin_user_id', linkedinUserId || '');
+      
+      if (linkedinExpiresAt) {
+        localStorage.setItem('linkedin_expires_at', linkedinExpiresAt);
+      }
+      if (linkedinRefreshToken) {
+        localStorage.setItem('linkedin_refresh_token', linkedinRefreshToken);
+      }
+      if (linkedinEmail) {
+        localStorage.setItem('linkedin_email', linkedinEmail);
+      }
+      
+      setLinkedInUsername(linkedinUsername);
+      toast.success(`Connected to LinkedIn as ${linkedinUsername}`);
+      
+      // Clean the URL to remove the tokens
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.search = '';
+      window.history.replaceState({}, document.title, cleanUrl.toString());
+    }
+  }, [location]);
+
   const handleTwitterLogin = async () => {
     try {
-      console.log('Initiating Twitter login...');
-      const response = await fetch("http://localhost:5000/auth/twitter");
+      setIsTwitterLoading(true);
+      // Use the full URL to our backend endpoint
+      const response = await fetch('http://localhost:3001/auth/twitter');
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server response:', errorText);
-        throw new Error(`Server returned ${response.status}: ${errorText}`);
+        const errorData = await response.json();
+        console.error('Twitter API error response:', errorData);
+        
+        // Show a more helpful error message with details if available
+        if (errorData.details) {
+          toast.error(
+            <div>
+              <p><strong>Twitter Error:</strong> {errorData.error}</p>
+              <p className="text-sm">{errorData.details}</p>
+            </div>,
+            { duration: 6000 }
+          );
+        } else {
+          toast.error(errorData.error || 'Failed to initiate Twitter login');
+        }
+        
+        throw new Error(errorData.error || 'Failed to initiate Twitter login');
       }
       
       const data = await response.json();
-      console.log('Received auth URL:', data.url);
-      window.location.href = data.url;
+      
+      if (data.url) {
+        // Log before redirecting
+        console.log('Opening Twitter auth URL:', data.url);
+        // Open in a new window instead of redirecting
+        const authWindow = window.open(data.url, 'Twitter Auth', 'width=600,height=600');
+        
+        // Add event listener for the popup window
+        const checkWindow = setInterval(() => {
+          if (authWindow?.closed) {
+            clearInterval(checkWindow);
+            // Check if we have the credentials in localStorage
+            const twitterUsername = localStorage.getItem('twitter_username');
+            if (twitterUsername) {
+              setTwitterUsername(twitterUsername);
+              toast.success(`Connected to Twitter as @${twitterUsername}`);
+            }
+          }
+        }, 1000);
+      } else {
+        throw new Error('No authentication URL received from server');
+      }
     } catch (error) {
-      console.error("Error initiating Twitter login:", error);
-      toast.error(`Failed to initiate Twitter login: ${error.message}`);
+      console.error('Error initiating Twitter login:', error);
+      if (!toast.isActive) {
+        toast.error(error instanceof Error ? error.message : 'Failed to connect to Twitter');
+      }
+    } finally {
+      setIsTwitterLoading(false);
     }
+  };
+
+  const handleLogoutTwitter = () => {
+    localStorage.removeItem('twitter_access_token');
+    localStorage.removeItem('twitter_refresh_token');
+    localStorage.removeItem('twitter_access_secret');
+    localStorage.removeItem('twitter_username');
+    setTwitterUsername(null);
+    toast.success('Disconnected from Twitter');
   };
 
   const handleSaveTwitter = async () => {
@@ -76,169 +200,181 @@ const SocialCredentials = () => {
     }
   };
 
+  const handleLinkedInLogin = async () => {
+    try {
+      setIsLinkedInLoading(true);
+      toast('Connecting to LinkedIn...');
+      
+      // Call our backend to initiate LinkedIn OAuth
+      const response = await fetch('/auth/linkedin');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('LinkedIn API error response:', errorData);
+        
+        // Show a more helpful error message with details if available
+        if (errorData.details) {
+          toast.error(
+            <div>
+              <p><strong>LinkedIn Error:</strong> {errorData.error}</p>
+              <p className="text-sm">{errorData.details}</p>
+            </div>,
+            { duration: 6000 }
+          );
+        } else {
+          toast.error(errorData.error || 'Failed to initiate LinkedIn login');
+        }
+        
+        throw new Error(errorData.error || 'Failed to initiate LinkedIn login');
+      }
+      
+      const data = await response.json();
+      
+      if (data.url) {
+        // Log before redirecting
+        console.log('Redirecting to LinkedIn auth URL:', data.url);
+        window.location.href = data.url;
+      } else {
+        throw new Error('No authentication URL received from server');
+      }
+    } catch (error) {
+      console.error('Error initiating LinkedIn login:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to connect to LinkedIn');
+    } finally {
+      setIsLinkedInLoading(false);
+    }
+  };
+
+  const handleLogoutLinkedIn = () => {
+    localStorage.removeItem('linkedin_access_token');
+    localStorage.removeItem('linkedin_refresh_token');
+    localStorage.removeItem('linkedin_expires_at');
+    localStorage.removeItem('linkedin_username');
+    localStorage.removeItem('linkedin_user_id');
+    localStorage.removeItem('linkedin_email');
+    setLinkedInUsername(null);
+    toast.success('Disconnected from LinkedIn');
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="max-w-4xl mx-auto space-y-6"
-    >
-      <div className="space-y-2">
-        <motion.h1 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60"
-        >
-          Social Media Credentials
-        </motion.h1>
-        <motion.p 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-muted-foreground"
-        >
-          Connect your social media accounts to enable analysis features
-        </motion.p>
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="mb-8 bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+        <h1 className="text-3xl font-bold mb-2 text-slate-900">Social Media Connections</h1>
+        <p className="text-slate-600">Connect your social media accounts to enable content publishing and analytics.</p>
       </div>
 
-      <Separator className="my-6" />
-
-      <div className="space-y-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card className="border-primary/20 hover:border-primary/40 transition-colors">
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Twitter className="h-6 w-6 text-blue-400" />
+      <div className="grid gap-6">
+        {/* Twitter Card */}
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Twitter className="h-6 w-6 text-blue-500" />
+                </div>
                 <div>
-                  <CardTitle>Twitter API</CardTitle>
-                  <CardDescription>
-                    Connect your Twitter account using OAuth
-                  </CardDescription>
+                  <CardTitle className="text-xl text-slate-900">Twitter</CardTitle>
+                  <CardDescription className="text-slate-600">Connect your Twitter account to publish tweets</CardDescription>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!twitterApiKey ? (
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <Button 
-                    onClick={handleTwitterLogin} 
-                    className="w-full bg-blue-500 hover:bg-blue-600"
-                  >
-                    Connect Twitter Account
-                  </Button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="twitter-api-key">Access Token</Label>
-                      <Input
-                        id="twitter-api-key"
-                        type="password"
-                        value={twitterApiKey}
-                        onChange={(e) => setTwitterApiKey(e.target.value)}
-                        placeholder="Twitter Access Token"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="twitter-api-secret">Access Secret</Label>
-                      <Input
-                        id="twitter-api-secret"
-                        type="password"
-                        value={twitterApiSecret}
-                        onChange={(e) => setTwitterApiSecret(e.target.value)}
-                        placeholder="Twitter Access Secret"
-                      />
-                    </div>
-                  </div>
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="mt-4"
-                  >
-                    <Button 
-                      onClick={handleSaveTwitter} 
-                      disabled={isLoading}
-                      className="w-full"
-                    >
-                      {isLoading ? "Saving..." : "Save Twitter Credentials"}
-                    </Button>
-                  </motion.div>
-                </motion.div>
+              {twitterUsername && (
+                <div className="flex items-center space-x-2 text-emerald-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="font-medium">Connected as @{twitterUsername}</span>
+                </div>
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card className="border-blue-500/20 hover:border-blue-500/40 transition-colors">
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Linkedin className="h-6 w-6 text-blue-600" />
-                <div>
-                  <CardTitle>LinkedIn API</CardTitle>
-                  <CardDescription>
-                    Connect your LinkedIn account using API credentials
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="linkedin-client-id">Client ID</Label>
-                  <Input
-                    id="linkedin-client-id"
-                    type="password"
-                    value={linkedinClientId}
-                    onChange={(e) => setLinkedinClientId(e.target.value)}
-                    placeholder="Enter your LinkedIn Client ID"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="linkedin-client-secret">Client Secret</Label>
-                  <Input
-                    id="linkedin-client-secret"
-                    type="password"
-                    value={linkedinClientSecret}
-                    onChange={(e) => setLinkedinClientSecret(e.target.value)}
-                    placeholder="Enter your LinkedIn Client Secret"
-                  />
-                </div>
-              </div>
-              <motion.div
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button 
-                  onClick={handleSaveLinkedIn} 
-                  disabled={isLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {twitterUsername ? (
+              <div className="space-y-4">
+                <p className="text-slate-600">Your Twitter account is connected and ready to use.</p>
+                <Button
+                  variant="destructive"
+                  onClick={handleLogoutTwitter}
+                  disabled={isTwitterLoading}
+                  className="w-full sm:w-auto"
                 >
-                  {isLoading ? "Saving..." : "Save LinkedIn Credentials"}
+                  Disconnect Twitter Account
                 </Button>
-              </motion.div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-slate-600">Connect your Twitter account to enable tweet publishing.</p>
+                <Button
+                  onClick={handleTwitterLogin}
+                  disabled={isTwitterLoading}
+                  className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  {isTwitterLoading ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin mr-2">◌</span> Connecting...
+                    </span>
+                  ) : (
+                    "Connect Twitter Account"
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* LinkedIn Card */}
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Linkedin className="h-6 w-6 text-blue-700" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl text-slate-900">LinkedIn</CardTitle>
+                  <CardDescription className="text-slate-600">Connect your LinkedIn account to publish posts</CardDescription>
+                </div>
+              </div>
+              {linkedInUsername && (
+                <div className="flex items-center space-x-2 text-emerald-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="font-medium">Connected as {linkedInUsername}</span>
+                </div>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {linkedInUsername ? (
+              <div className="space-y-4">
+                <p className="text-slate-600">Your LinkedIn account is connected and ready to use.</p>
+                <Button
+                  variant="destructive"
+                  onClick={handleLogoutLinkedIn}
+                  disabled={isLinkedInLoading}
+                  className="w-full sm:w-auto"
+                >
+                  Disconnect LinkedIn Account
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-slate-600">Connect your LinkedIn account to enable post publishing.</p>
+                <Button
+                  onClick={handleLinkedInLogin}
+                  disabled={isLinkedInLoading}
+                  className="w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white"
+                >
+                  {isLinkedInLoading ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin mr-2">◌</span> Connecting...
+                    </span>
+                  ) : (
+                    "Connect LinkedIn Account"
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
-    </motion.div>
+    </div>
   );
 };
 

@@ -1,69 +1,101 @@
-# Welcome to your Lovable project
+# Welcome to Tweet Tribune
 
-## Project info
+## Project Description
 
-**URL**: https://lovable.dev/projects/69c14404-6907-432b-b6ca-1fb863a0d866
+Tweet Tribune is a comprehensive Twitter analysis tool that helps users analyze tweets, schedule posts, and gain insights into their social media performance using AI-powered analytics.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- Tweet analysis and sentiment scoring
+- Social media post scheduling
+- Twitter API integration
+- User authentication
+- Analytics dashboard
+- Tweet history tracking
 
-**Use Lovable**
+## Tech Stack
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/69c14404-6907-432b-b6ca-1fb863a0d866) and start prompting.
+- Frontend: React, TypeScript, Tailwind CSS, shadcn/ui
+- Backend: Express.js (integrated within the same codebase)
+- API Integrations: Twitter API, OpenAI API
 
-Changes made via Lovable will be committed automatically to this repo.
+## Getting Started
 
-**Use your preferred IDE**
+### Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Twitter API credentials
+- OpenAI API key
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Setup
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to the project directory
+cd tweet-tribune
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Create a .env file (copy from .env.sample)
+cp .env.sample .env
+
+# Fill in your environment variables in the .env file
+# - TWITTER_API_KEY
+# - TWITTER_API_SECRET
+# - OPENAI_API_KEY
+
+# Start the development server (frontend and backend)
+npm run start
 ```
 
-**Edit a file directly in GitHub**
+This will start both the frontend (Vite) and backend (Express) servers concurrently.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Frontend: http://localhost:5173
+- Backend: http://localhost:3001 (accessed via proxy)
 
-**Use GitHub Codespaces**
+## Development Scripts
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `npm run dev` - Start frontend development server
+- `npm run server:dev` - Start backend server with auto-restart
+- `npm run start` - Start both frontend and backend (for development)
+- `npm run build` - Build frontend for production
+- `npm run lint` - Run ESLint to check for code issues
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with .
+```
+/
+├── public/             # Static assets
+├── src/
+│   ├── api/            # Backend API code
+│   │   ├── routes/     # Express route definitions
+│   │   ├── services/   # Business logic and external services
+│   │   ├── server.js   # Express server setup
+│   │   └── index.js    # Server entry point
+│   ├── components/     # React components
+│   ├── contexts/       # React context providers
+│   ├── hooks/          # Custom React hooks
+│   ├── lib/            # Utility functions
+│   ├── pages/          # Page components
+│   ├── App.tsx         # Main React component
+│   └── main.tsx        # Application entry point
+├── .env                # Environment variables (not committed)
+├── .env.sample         # Sample environment variables
+└── package.json        # Project dependencies and scripts
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
-## How can I deploy this project?
+For production deployment, build the frontend and start the server:
 
-Simply open [Lovable](https://lovable.dev/projects/69c14404-6907-432b-b6ca-1fb863a0d866) and click on Share -> Publish.
+```sh
+npm run build
+npm run server
+```
 
-## I want to use a custom domain - is that possible?
+## License
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+[MIT License]
