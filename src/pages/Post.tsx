@@ -64,6 +64,9 @@ const Post = () => {
     const twitterToken = localStorage.getItem("twitter_access_token");
     const linkedInToken = localStorage.getItem("linkedin_access_token");
     
+    console.log("Twitter token:", twitterToken);
+    console.log("LinkedIn token:", linkedInToken);
+    
     setTwitterConnected(!!twitterToken);
     setLinkedInConnected(!!linkedInToken);
   }, []);
@@ -188,41 +191,152 @@ const Post = () => {
     setIsPosting(true);
     
     try {
-      // Create FormData object for the image if there is one
-      const formData = new FormData();
-      formData.append("content", postContent);
-      if (selectedImage) {
-        formData.append("image", selectedImage);
+      console.log("Publishing post with content:", postContent);
+      console.log("Publishing to Twitter:", postToTwitter);
+      console.log("Publishing to LinkedIn:", postToLinkedIn);
+      console.log("Twitter connected:", twitterConnected);
+      console.log("LinkedIn connected:", linkedInConnected);
+      
+      let twitterSuccess = false;
+      let linkedinSuccess = false;
+      
+      // Make API call to backend for Twitter
+      if (postToTwitter && twitterConnected) {
+        try {
+          // Get the Twitter OAuth token - modern API uses OAuth 2.0
+          const twitterAccessToken = localStorage.getItem('twitter_access_token');
+          
+          // Note: The new Twitter API v2 doesn't use access_secret for OAuth 2.0
+          // So we're sending only the access token
+          const twitterResponse = await fetch("http://localhost:3001/api/tweet", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${twitterAccessToken}`
+            },
+            body: JSON.stringify({
+              message: postContent
+            }),
+          });
+          
+          if (!twitterResponse.ok) {
+            const errorText = await twitterResponse.text();
+            console.error("Twitter API error:", errorText);
+            throw new Error("Failed to post to Twitter");
+          }
+          
+          console.log("Twitter post successful");
+          twitterSuccess = true;
+        } catch (twitterError) {
+          console.error("Twitter posting error:", twitterError);
+          throw new Error("Failed to post to Twitter: " + twitterError.message);
+        }
       }
       
-      // Platforms to post to
-      formData.append("platforms", JSON.stringify({
-        twitter: postToTwitter,
-        linkedin: postToLinkedIn
-      }));
+      // Make API call to backend for LinkedIn
+      if (postToLinkedIn && linkedInConnected) {
+        try {
+          // Get the LinkedIn OAuth token
+          const linkedinAccessToken = localStorage.getItem('linkedin_access_token');
+          
+          if (!linkedinAccessToken) {
+            throw new Error("LinkedIn access token not found");
+          }
+          
+          // Call the LinkedIn post endpoint
+          const linkedinResponse = await fetch("http://localhost:3001/api/linkedin/post", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${linkedinAccessToken}`
+            },
+            body: JSON.stringify({
+              message: postContent
+            }),
+          });
+          
+          const linkedinData = await linkedinResponse.json();
+          
+          if (!linkedinResponse.ok) {
+            console.error("LinkedIn API response:", linkedinData);
+            
+            // Check if it's a permissions error
+            if (linkedinData.details && linkedinData.details.includes('Not enough permissions')) {
+              // Clear the old token
+              localStorage.removeItem('linkedin_access_token');
+              
+              // Show error and prompt for re-authentication
+              toast.error(
+                <div>
+                  <p className="font-semibold">LinkedIn Permissions Required</p>
+                  <p className="text-sm mt-1">Please reconnect your LinkedIn account to enable posting.</p>
+                  <button
+                    onClick={() => window.location.href = '/social-credentials'}
+                    className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
+                  >
+                    Reconnect LinkedIn →
+                  </button>
+                </div>,
+                { duration: 10000 }
+              );
+              
+              throw new Error("LinkedIn permissions required. Please reconnect your account.");
+            }
+            
+            throw new Error(linkedinData.error || "Failed to post to LinkedIn");
+          }
+          
+          console.log("LinkedIn post successful:", linkedinData);
+          linkedinSuccess = true;
+          
+          // Show success message with link to the post
+          toast.success(
+            <div>
+              <p className="font-semibold">Posted to LinkedIn Successfully!</p>
+              <p className="text-sm mt-1">Your post is now live on LinkedIn.</p>
+              {linkedinData.linkedin_url && (
+                <a 
+                  href={linkedinData.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
+                >
+                  View your post on LinkedIn →
+                </a>
+              )}
+            </div>,
+            { duration: 8000 }
+          );
+        } catch (linkedinError) {
+          console.error("LinkedIn posting error:", linkedinError);
+          toast.error("LinkedIn posting failed: " + linkedinError.message);
+        }
+      }
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Success message
-      let successMessage = "Posted successfully to ";
+      // Show appropriate error message
       if (postToTwitter && postToLinkedIn) {
-        successMessage += "Twitter and LinkedIn!";
-      } else if (postToTwitter) {
-        successMessage += "Twitter!";
-      } else {
-        successMessage += "LinkedIn!";
+        if (!twitterSuccess && !linkedinSuccess) {
+          toast.error('Failed to post to both Twitter and LinkedIn');
+        } else if (!twitterSuccess) {
+          toast.error('Failed to post to Twitter');
+        } else if (!linkedinSuccess) {
+          toast.error('Failed to post to LinkedIn');
+        }
+      } else if (postToTwitter && !twitterSuccess) {
+        toast.error('Failed to post to Twitter');
+      } else if (postToLinkedIn && !linkedinSuccess) {
+        toast.error('Failed to post to LinkedIn');
       }
       
-      toast.success(successMessage);
-      
-      // Clear form after successful post
-      setPostContent("");
-      setSelectedImage(null);
-      setImagePreview(null);
+      // Clear form after successful post if at least one platform was successful
+      if (twitterSuccess) {
+        setPostContent("");
+        setSelectedImage(null);
+        setImagePreview(null);
+      }
     } catch (error) {
       console.error("Error publishing post:", error);
-      toast.error("Failed to publish post");
+      toast.error("Failed to publish post: " + (error.message || "Unknown error"));
     } finally {
       setIsPosting(false);
     }

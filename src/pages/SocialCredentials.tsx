@@ -156,9 +156,7 @@ const SocialCredentials = () => {
       }
     } catch (error) {
       console.error('Error initiating Twitter login:', error);
-      if (!toast.isActive) {
-        toast.error(error instanceof Error ? error.message : 'Failed to connect to Twitter');
-      }
+      toast.error(error instanceof Error ? error.message : 'Failed to connect to Twitter');
     } finally {
       setIsTwitterLoading(false);
     }
@@ -177,8 +175,8 @@ const SocialCredentials = () => {
     setIsLoading(true);
     try {
       // Store credentials in localStorage (in production, use a secure backend)
-      localStorage.setItem("twitterAccessToken", twitterApiKey);
-      localStorage.setItem("twitterAccessSecret", twitterApiSecret);
+      localStorage.setItem("twitter_access_token", twitterApiKey);
+      localStorage.setItem("twitter_access_secret", twitterApiSecret);
       toast.success("Twitter credentials saved successfully!");
     } catch (error) {
       toast.error("Failed to save Twitter credentials");
@@ -257,10 +255,29 @@ const SocialCredentials = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8 bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
-        <h1 className="text-3xl font-bold mb-2 text-slate-900">Social Media Connections</h1>
-        <p className="text-slate-600">Connect your social media accounts to enable content publishing and analytics.</p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="max-w-4xl mx-auto space-y-6"
+    >
+      <div className="space-y-2">
+        <motion.h1 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-3xl font-bold text-blue-600"
+        >
+          Social Media Connections
+        </motion.h1>
+        <motion.p 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="text-slate-600"
+        >
+          Connect your social media accounts to enable content publishing and analytics
+        </motion.p>
       </div>
 
       <div className="grid gap-6">
@@ -301,8 +318,8 @@ const SocialCredentials = () => {
             ) : (
               <div className="space-y-4">
                 <p className="text-slate-600">Connect your Twitter account to enable tweet publishing.</p>
-                <Button
-                  onClick={handleTwitterLogin}
+                <Button 
+                  onClick={handleTwitterLogin} 
                   disabled={isTwitterLoading}
                   className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white"
                 >
@@ -356,7 +373,7 @@ const SocialCredentials = () => {
             ) : (
               <div className="space-y-4">
                 <p className="text-slate-600">Connect your LinkedIn account to enable post publishing.</p>
-                <Button
+                <Button 
                   onClick={handleLinkedInLogin}
                   disabled={isLinkedInLoading}
                   className="w-full sm:w-auto bg-blue-700 hover:bg-blue-800 text-white"
@@ -374,7 +391,7 @@ const SocialCredentials = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

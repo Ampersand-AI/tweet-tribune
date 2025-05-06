@@ -50,27 +50,51 @@ app.use('/auth', authRouter); // All auth routes including /auth/twitter go here
 
 // Tweet on user's behalf (API route, not auth route)
 app.post('/api/tweet', async (req, res) => {
-  const { accessToken, accessSecret, message } = req.body;
-
   try {
+    // Get the Twitter API credentials from environment variables
     if (!process.env.TWITTER_API_KEY || !process.env.TWITTER_API_SECRET) {
       throw new Error('Twitter API credentials are missing');
     }
     
+    // Get authorization token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new Error('Authorization token is missing or invalid');
+    }
+    
+    // Extract the access token
+    const accessToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    if (!accessToken) {
+      throw new Error('Access token is required');
+    }
+    
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      throw new Error('Tweet message is required');
+    }
+    
+    console.log('Posting tweet with access token:', accessToken.substring(0, 10) + '...');
+    console.log('Tweet message:', message);
+    
+    // Import the Twitter API library
     const { TwitterApi } = await import('twitter-api-v2');
     
-    const userClient = new TwitterApi({
-      appKey: process.env.TWITTER_API_KEY,
-      appSecret: process.env.TWITTER_API_SECRET,
-      accessToken,
-      accessSecret,
-    });
-
+    // For OAuth 2.0, we just need the access token
+    const userClient = new TwitterApi(accessToken);
+    
+    // Post the tweet using Twitter API v2
     const result = await userClient.v2.tweet(message);
+    
+    console.log('Tweet posted successfully:', result);
+    
     res.json({ success: true, tweet: result });
   } catch (error) {
     console.error('Error tweeting:', error);
-    res.status(500).json({ error: 'Failed to post tweet' });
+    res.status(500).json({ 
+      error: 'Failed to post tweet', 
+      details: error.message 
+    });
   }
 });
 
@@ -215,7 +239,14 @@ const LINKEDIN_CONFIG = {
   clientId: process.env.LINKEDIN_CLIENT_ID,
   clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
   redirectUri: 'http://localhost:3001/auth/linkedin/callback',
-  scopes: ['openid', 'profile', 'email'],
+  scopes: [
+    'openid',
+    'profile',
+    'email',
+    'r_liteprofile',
+    'r_emailaddress',
+    'w_member_social'
+  ],
   authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
   tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
   userInfoUrl: 'https://api.linkedin.com/v2/userinfo'
@@ -301,6 +332,118 @@ app.get('/api/linkedin/stats', async (req, res) => {
     console.error('Error in LinkedIn stats endpoint:', error);
     res.status(500).json({ 
       error: 'Failed to fetch LinkedIn statistics',
+      details: error.message
+    });
+  }
+});
+
+// LinkedIn post endpoint
+app.post('/api/linkedin/post', async (req, res) => {
+  try {
+    // Get authorization token from header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Authorization token is missing or invalid',
+        details: 'A valid LinkedIn OAuth token is required'
+      });
+    }
+    
+    // Extract the access token
+    const accessToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    if (!accessToken) {
+      return res.status(401).json({ 
+        error: 'Access token is required',
+        details: 'The LinkedIn access token is missing'
+      });
+    }
+    
+    // Get the message content
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ 
+        error: 'Message is required',
+        details: 'The post content cannot be empty'
+      });
+    }
+    
+    // Log the request
+    console.log('LinkedIn post request:');
+    console.log('- Token:', accessToken.substring(0, 10) + '...');
+    console.log('- Message:', message);
+
+    // First, get the user's profile to get their URN
+    const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!profileResponse.ok) {
+      const errorData = await profileResponse.json();
+      console.error('LinkedIn profile error:', errorData);
+      throw new Error(`Failed to get LinkedIn profile: ${errorData.message || profileResponse.statusText}`);
+    }
+
+    const profileData = await profileResponse.json();
+    console.log('LinkedIn profile data:', profileData);
+    const authorUrn = `urn:li:person:${profileData.id}`;
+
+    // Prepare the share content
+    const shareContent = {
+      author: authorUrn,
+      lifecycleState: 'PUBLISHED',
+      specificContent: {
+        'com.linkedin.ugc.ShareContent': {
+          shareCommentary: {
+            text: message
+          },
+          shareMediaCategory: 'NONE'
+        }
+      },
+      visibility: {
+        'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC'
+      }
+    };
+
+    console.log('Sending share content:', JSON.stringify(shareContent, null, 2));
+
+    // Make the share request
+    const shareResponse = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0',
+        'Cache-Control': 'no-cache'
+      },
+      body: JSON.stringify(shareContent)
+    });
+
+    if (!shareResponse.ok) {
+      const errorData = await shareResponse.json();
+      console.error('LinkedIn share error:', errorData);
+      throw new Error(`Failed to create LinkedIn post: ${errorData.message || shareResponse.statusText}`);
+    }
+
+    const shareData = await shareResponse.json();
+    console.log('LinkedIn share response:', shareData);
+    
+    // Return success response with the actual post ID
+    res.json({
+      success: true,
+      message: 'Post created successfully on LinkedIn',
+      post_id: shareData.id,
+      timestamp: new Date().toISOString(),
+      linkedin_url: `https://www.linkedin.com/feed/update/${shareData.id}`
+    });
+  } catch (error) {
+    console.error('Error in LinkedIn post endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to handle LinkedIn post request',
       details: error.message
     });
   }

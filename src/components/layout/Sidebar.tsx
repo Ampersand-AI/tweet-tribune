@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Twitter, BarChart2, Calendar, Settings, History, Edit } from "lucide-react";
+import { Twitter, BarChart2, Calendar, Settings, History, Edit, Link2 } from "lucide-react";
 
 const Sidebar = () => {
   const location = useLocation();
@@ -25,6 +25,11 @@ const Sidebar = () => {
       name: "Analysis",
       href: "/analysis",
       icon: Twitter,
+    },
+    {
+      name: "Social Credentials",
+      href: "/social-credentials",
+      icon: Link2,
     },
     {
       name: "Settings",

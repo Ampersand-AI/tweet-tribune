@@ -54,19 +54,28 @@ const Schedule = () => {
     for (const tweet of tweetsToPost) {
       try {
         setIsLoading(true);
+        
+        // Get the Twitter OAuth token
+        const twitterAccessToken = localStorage.getItem('twitter_access_token');
+        
+        if (!twitterAccessToken) {
+          throw new Error('Twitter access token not found');
+        }
+        
         const response = await fetch("http://localhost:3001/api/tweet", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${twitterAccessToken}`
           },
           body: JSON.stringify({
-            message: tweet.content,
-            accessToken: localStorage.getItem('twitterAccessToken'),
-            accessSecret: localStorage.getItem('twitterAccessSecret'),
+            message: tweet.content
           }),
         });
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
           throw new Error('Failed to post tweet');
         }
 
@@ -87,7 +96,7 @@ const Schedule = () => {
         setScheduledTweets(updatedTweets);
         localStorage.setItem('scheduledTweets', JSON.stringify(updatedTweets));
         
-        toast.error('Failed to post tweet');
+        toast.error('Failed to post tweet: ' + error.message);
       } finally {
         setIsLoading(false);
       }
@@ -151,19 +160,28 @@ const Schedule = () => {
   const handlePostNow = async (tweet: ScheduledTweet) => {
     try {
       setIsLoading(true);
+      
+      // Get the Twitter OAuth token
+      const twitterAccessToken = localStorage.getItem('twitter_access_token');
+      
+      if (!twitterAccessToken) {
+        throw new Error('Twitter access token not found. Please connect your Twitter account.');
+      }
+      
       const response = await fetch("http://localhost:3001/api/tweet", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${twitterAccessToken}`
         },
         body: JSON.stringify({
-          message: tweet.content,
-          accessToken: localStorage.getItem('twitterAccessToken'),
-          accessSecret: localStorage.getItem('twitterAccessSecret'),
+          message: tweet.content
         }),
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
         throw new Error('Failed to post tweet');
       }
 
@@ -177,7 +195,7 @@ const Schedule = () => {
       toast.success('Tweet posted successfully!');
     } catch (error) {
       console.error('Error posting tweet:', error);
-      toast.error('Failed to post tweet');
+      toast.error('Failed to post tweet: ' + error.message);
     } finally {
       setIsLoading(false);
     }

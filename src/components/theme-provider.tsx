@@ -70,7 +70,7 @@ export const useTheme = () => {
     throw new Error("useTheme must be used within a ThemeProvider");
 
   return context;
-};
+}; 
 
 // Custom theme colors with sky blue scheme
 export const themeColors = {

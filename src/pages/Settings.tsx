@@ -54,7 +54,7 @@ const Settings = () => {
           transition={{ delay: 0.3 }}
           className="text-slate-600"
         >
-          Manage your account settings and preferences
+            Manage your account settings and preferences
         </motion.p>
       </div>
 
@@ -73,7 +73,7 @@ const Settings = () => {
             Appearance
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="account">
           <Card>
             <CardHeader>
@@ -83,7 +83,7 @@ const Settings = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
+                <div className="space-y-2">
                 <Label htmlFor="name" className="text-blue-600">Name</Label>
                 <Input
                   id="name"
@@ -91,8 +91,8 @@ const Settings = () => {
                   onChange={(e) => setName(e.target.value)}
                   className="border-blue-100 text-slate-800"
                 />
-              </div>
-              <div className="space-y-2">
+                </div>
+                <div className="space-y-2">
                 <Label htmlFor="email" className="text-blue-600">Email</Label>
                 <Input
                   id="email"
@@ -110,7 +110,7 @@ const Settings = () => {
             </CardFooter>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="notifications">
           <Card>
             <CardHeader>
@@ -165,8 +165,8 @@ const Settings = () => {
                   />
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
                     <Label className="text-slate-800">Marketing Emails</Label>
                     <p className="text-xs text-slate-600">Receive promotional emails and newsletters</p>
                   </div>
@@ -184,7 +184,7 @@ const Settings = () => {
             </CardFooter>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="appearance">
           <Card>
             <CardHeader>

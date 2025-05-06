@@ -25,20 +25,20 @@ const App = () => {
       <AuthProvider>
         <BrowserRouter>
           <div className="min-h-screen bg-white">
-            <AnimatePresence mode="wait">
-              <Routes>
-                <Route path="/sign-in" element={<SignIn />} />
-                <Route path="/sign-up" element={<SignUp />} />
+                <AnimatePresence mode="wait">
+                  <Routes>
+                    <Route path="/sign-in" element={<SignIn />} />
+                    <Route path="/sign-up" element={<SignUp />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/auth/twitter/callback" element={<TwitterCallback />} />
                 <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
+                    <Route
+                      path="/"
+                      element={
+                        <ProtectedRoute>
                       <MainLayout />
-                    </ProtectedRoute>
-                  }
+                        </ProtectedRoute>
+                      }
                 >
                   <Route index element={<Dashboard />} />
                   <Route path="analytics" element={<Analytics />} />
@@ -50,8 +50,8 @@ const App = () => {
                 </Route>
                 <Route path="/404" element={<NotFound />} />
                 <Route path="*" element={<Navigate to="/404" replace />} />
-              </Routes>
-            </AnimatePresence>
+                  </Routes>
+                </AnimatePresence>
           </div>
           <Toaster position="top-right" richColors />
         </BrowserRouter>
